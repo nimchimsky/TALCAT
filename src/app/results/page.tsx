@@ -21,39 +21,46 @@ export default async function ResultsPage() {
         title="Intents recents"
         description="Els casos flagged haurien d'obrir una revisio manual o reglada."
       >
-        <div className="space-y-4">
-          {snapshot.attempts.map((attempt) => (
-            <article
-              key={attempt.id}
-              className="rounded-[24px] border border-slate-200/80 bg-white/75 p-5"
-            >
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold text-slate-950">
-                      {attempt.participantCode} - {attempt.testName}
-                    </h3>
-                    <StatusBadge status={attempt.status} />
+        {snapshot.attempts.length === 0 ? (
+          <p className="rounded-[22px] border border-dashed border-slate-300 bg-white/60 p-4 text-sm text-slate-500">
+            Encara no hi ha resultats reals. El cataleg TALCAT ja esta publicat a
+            la base de dades i el seguent pas es captar respostes.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {snapshot.attempts.map((attempt) => (
+              <article
+                key={attempt.id}
+                className="rounded-[24px] border border-slate-200/80 bg-white/75 p-5"
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-semibold text-slate-950">
+                        {attempt.participantCode} - {attempt.testName}
+                      </h3>
+                      <StatusBadge status={attempt.status} />
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Accuracy {formatPercent(attempt.accuracy)} - d&apos;{" "}
+                      {attempt.dPrime ?? "Sense valor"}
+                      {attempt.submittedAt
+                        ? ` - enviat ${formatDateTime(attempt.submittedAt)}`
+                        : ""}
+                    </p>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Accuracy {formatPercent(attempt.accuracy)} - d&apos;{" "}
-                    {attempt.dPrime ?? "Sense valor"}
-                    {attempt.submittedAt
-                      ? ` - enviat ${formatDateTime(attempt.submittedAt)}`
-                      : ""}
-                  </p>
-                </div>
 
-                <div className="rounded-[22px] bg-slate-100/80 px-4 py-3 text-sm text-slate-600">
-                  <p className="font-medium text-slate-950">
-                    {attempt.score ?? "pendent"}
-                  </p>
-                  <p>score operatiu</p>
+                  <div className="rounded-[22px] bg-slate-100/80 px-4 py-3 text-sm text-slate-600">
+                    <p className="font-medium text-slate-950">
+                      {attempt.score ?? "pendent"}
+                    </p>
+                    <p>score operatiu</p>
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
-        </div>
+              </article>
+            ))}
+          </div>
+        )}
       </SectionCard>
     </>
   );

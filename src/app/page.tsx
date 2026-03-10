@@ -124,58 +124,71 @@ export default async function DashboardPage() {
           title="Sessions i intents"
           description="Seguiment de sessions actives i intents ja puntuats."
         >
-          <div className="space-y-3">
-            {snapshot.sessions.map((session) => (
-              <div
-                key={session.id}
-                className="flex flex-col gap-3 rounded-[22px] border border-slate-200/80 bg-white/75 p-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div>
-                  <p className="font-medium text-slate-950">
-                    {session.participantCode} - {session.testName}
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    {session.deviceGroup} - inici {formatDateTime(session.startedAt)}
-                  </p>
+          {snapshot.sessions.length === 0 ? (
+            <p className="rounded-[22px] border border-dashed border-slate-300 bg-white/60 p-4 text-sm text-slate-500">
+              Encara no hi ha sessions reals registrades.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {snapshot.sessions.map((session) => (
+                <div
+                  key={session.id}
+                  className="flex flex-col gap-3 rounded-[22px] border border-slate-200/80 bg-white/75 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="font-medium text-slate-950">
+                      {session.participantCode} - {session.testName}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      {session.deviceGroup} - inici {formatDateTime(session.startedAt)}
+                    </p>
+                  </div>
+                  <StatusBadge status={session.status} />
                 </div>
-                <StatusBadge status={session.status} />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </SectionCard>
 
         <SectionCard
           title="Qualitat i scoring"
           description="Vista rapida dels intents que ja entren al reporting."
         >
-          <div className="space-y-3">
-            {snapshot.attempts.map((attempt) => (
-              <div
-                key={attempt.id}
-                className="rounded-[22px] border border-slate-200/80 bg-white/75 p-4"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="font-medium text-slate-950">
-                      {attempt.participantCode} - {attempt.testName}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      accuracy {formatPercent(attempt.accuracy)} - d&apos;{" "}
-                      {attempt.dPrime ?? "Sense valor"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {attempt.score ? (
-                      <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white">
-                        score {attempt.score}
-                      </span>
-                    ) : null}
-                    <StatusBadge status={attempt.status} />
+          {snapshot.attempts.length === 0 ? (
+            <p className="rounded-[22px] border border-dashed border-slate-300 bg-white/60 p-4 text-sm text-slate-500">
+              Encara no hi ha intents puntuats. El cataleg ja esta carregat i la
+              seguent fase es obrir el runner public.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {snapshot.attempts.map((attempt) => (
+                <div
+                  key={attempt.id}
+                  className="rounded-[22px] border border-slate-200/80 bg-white/75 p-4"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-medium text-slate-950">
+                        {attempt.participantCode} - {attempt.testName}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        accuracy {formatPercent(attempt.accuracy)} - d&apos;{" "}
+                        {attempt.dPrime ?? "Sense valor"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {attempt.score ? (
+                        <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white">
+                          score {attempt.score}
+                        </span>
+                      ) : null}
+                      <StatusBadge status={attempt.status} />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </SectionCard>
       </section>
 

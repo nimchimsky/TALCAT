@@ -57,7 +57,11 @@ npm run db:generate
 npm run db:push
 npm run db:migrate
 npm run db:seed
+npm run catalog:sync
 ```
+
+`npm run catalog:sync` importa les formes reals `short_form_v1_items.csv` i
+`short_form_v2_items.csv` des del workspace `7 Test 2026`.
 
 ## Deploy a Railway
 
