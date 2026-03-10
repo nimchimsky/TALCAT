@@ -8,6 +8,14 @@ import {
 } from "@prisma/client";
 import { headers } from "next/headers";
 
+import {
+  applyAdaptiveAnswer,
+  createInitialAdaptiveState,
+  finalizeAdaptiveAttemptState,
+  getAdaptiveSessionStateFromAttempt,
+  type AdaptiveEngineState,
+  type AdaptiveSessionState,
+} from "@/lib/adaptive-engine";
 import { computeDPrime, getBandLabel } from "@/lib/scoring";
 import { prisma } from "@/lib/prisma";
 
@@ -78,6 +86,7 @@ export type PublicAttemptSession = {
   testName: string;
   formLabel: string;
   formCode: string;
+  deliveryMode: string;
   items: RunnerItem[];
 };
 
@@ -477,6 +486,55 @@ async function getOrganizationId() {
   return organization.id;
 }
 
+async function getLatestAdaptiveTheta(participantId: string) {
+  const latest = await prisma.attempt.findFirst({
+    where: {
+      participantId,
+      deliveryMode: "adaptive",
+      status: AttemptStatus.SCORED,
+      finalTheta: {
+        not: null,
+      },
+    },
+    orderBy: { submittedAt: "desc" },
+    select: {
+      finalTheta: true,
+    },
+  });
+
+  return latest?.finalTheta ?? null;
+}
+
+async function resolveAdaptiveItemEntry(payload: {
+  stableKey: string;
+  prompt: string;
+  itemType: ItemType;
+}) {
+  const existing = await prisma.itemBankEntry.findUnique({
+    where: {
+      stableKey: payload.stableKey,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  return prisma.itemBankEntry.create({
+    data: {
+      stableKey: payload.stableKey,
+      prompt: payload.prompt,
+      itemType: payload.itemType,
+    },
+    select: {
+      id: true,
+    },
+  });
+}
+
 async function generateParticipantCode() {
   for (let index = 0; index < 10; index += 1) {
     const code = `TALCAT-${randomBytes(3).toString("hex").toUpperCase()}`;
@@ -526,11 +584,27 @@ async function upsertPublicParticipant(payload: {
   fullName?: string;
   email?: string;
   participantCode?: string;
+  age?: number | null;
+  selfReportedCatalan?: number | null;
+  isNative?: boolean | null;
 }) {
   const now = new Date();
   const fullName = payload.fullName?.trim() || null;
   const email = payload.email?.trim() || null;
   const participantCode = payload.participantCode?.trim().toUpperCase() || null;
+  const age =
+    typeof payload.age === "number" && Number.isFinite(payload.age)
+      ? Math.max(12, Math.min(120, Math.round(payload.age)))
+      : null;
+  const birthYear =
+    age === null ? null : new Date().getFullYear() - age;
+  const selfReportedCatalan =
+    typeof payload.selfReportedCatalan === "number" &&
+    Number.isFinite(payload.selfReportedCatalan)
+      ? Math.max(0, Math.min(10, payload.selfReportedCatalan))
+      : null;
+  const isNative =
+    typeof payload.isNative === "boolean" ? payload.isNative : null;
 
   if (participantCode) {
     const existing = await prisma.participant.findUnique({
@@ -546,6 +620,10 @@ async function upsertPublicParticipant(payload: {
       data: {
         fullName: fullName ?? existing.fullName,
         email: email ?? existing.email,
+        birthYear: birthYear ?? existing.birthYear,
+        selfReportedCatalan:
+          selfReportedCatalan ?? existing.selfReportedCatalan,
+        isNative: isNative ?? existing.isNative,
         consentAt: existing.consentAt ?? now,
         lastSeenAt: now,
       },
@@ -561,6 +639,9 @@ async function upsertPublicParticipant(payload: {
       publicCode,
       fullName,
       email,
+      birthYear,
+      selfReportedCatalan,
+      isNative,
       consentAt: now,
       lastSeenAt: now,
     },
@@ -634,7 +715,14 @@ export async function getPublicFormByCode(formCode: string) {
 
 export async function createPublicAttempt(
   formCode: string,
-  payload: { fullName?: string; email?: string; participantCode?: string },
+  payload: {
+    fullName?: string;
+    email?: string;
+    participantCode?: string;
+    age?: number | null;
+    selfReportedCatalan?: number | null;
+    isNative?: boolean | null;
+  },
 ) {
   const form = await getPublicFormByCode(formCode);
 
@@ -643,6 +731,7 @@ export async function createPublicAttempt(
   }
 
   const participant = await upsertPublicParticipant(payload);
+  const previousTheta = await getLatestAdaptiveTheta(participant.id);
   const existingAttempt = await prisma.attempt.findFirst({
     where: {
       participantId: participant.id,
@@ -680,8 +769,33 @@ export async function createPublicAttempt(
       formId: form.id,
       sessionId: session.id,
       status: AttemptStatus.IN_PROGRESS,
+      deliveryMode: form.deliveryMode,
     },
   });
+
+  if (form.code === "adaptive_main" || form.deliveryMode === "adaptive") {
+    const adaptiveState = await createInitialAdaptiveState({
+      age:
+        participant.birthYear === null
+          ? payload.age ?? null
+          : new Date().getFullYear() - participant.birthYear,
+      selfReportedCatalan:
+        payload.selfReportedCatalan ?? participant.selfReportedCatalan ?? null,
+      isNative: payload.isNative ?? participant.isNative ?? null,
+      previousTheta,
+    });
+
+    await prisma.attempt.update({
+      where: { id: attempt.id },
+      data: {
+        startTheta: adaptiveState.startTheta,
+        finalTheta: adaptiveState.currentTheta,
+        finalSem: adaptiveState.currentSem,
+        engineVersion: adaptiveState.engineVersion,
+        engineState: adaptiveState,
+      },
+    });
+  }
 
   await prisma.auditLog.create({
     data: {
@@ -694,6 +808,7 @@ export async function createPublicAttempt(
       metadata: {
         participantCode: participant.publicCode,
         formCode: form.code,
+        deliveryMode: form.deliveryMode,
       },
     },
   });
@@ -728,6 +843,19 @@ export async function getAttemptSession(attemptId: string) {
     return null;
   }
 
+  if (attempt.deliveryMode === "adaptive" || attempt.form.code === "adaptive_main") {
+    return {
+      attemptId: attempt.id,
+      participantCode: attempt.participant.publicCode,
+      participantName: attempt.participant.fullName,
+      testName: attempt.test.name,
+      formLabel: attempt.form.label,
+      formCode: attempt.form.code,
+      deliveryMode: "adaptive",
+      items: [],
+    } satisfies PublicAttemptSession;
+  }
+
   const sequence = getAttemptSequence(attempt.id, attempt.form.items);
 
   return {
@@ -737,6 +865,7 @@ export async function getAttemptSession(attemptId: string) {
     testName: attempt.test.name,
     formLabel: attempt.form.label,
     formCode: attempt.form.code,
+    deliveryMode: attempt.deliveryMode,
     items: sequence.map((entry) => ({
       itemId: entry.item.id,
       prompt: entry.item.prompt,
@@ -879,6 +1008,157 @@ export async function submitAttempt(
   };
 }
 
+export async function getAdaptiveAttemptState(
+  attemptId: string,
+): Promise<AdaptiveSessionState | null> {
+  if (!process.env.DATABASE_URL) {
+    return null;
+  }
+
+  const attempt = await prisma.attempt.findUnique({
+    where: { id: attemptId },
+    include: {
+      participant: true,
+    },
+  });
+
+  if (!attempt || attempt.deliveryMode !== "adaptive") {
+    return null;
+  }
+
+  return getAdaptiveSessionStateFromAttempt(attempt);
+}
+
+export async function submitAdaptiveAnswer(
+  attemptId: string,
+  payload: {
+    answerBoolean: boolean;
+    rtMs: number;
+  },
+) {
+  const attempt = await prisma.attempt.findUnique({
+    where: { id: attemptId },
+    include: {
+      participant: true,
+      form: true,
+      test: true,
+    },
+  });
+
+  if (!attempt || attempt.deliveryMode !== "adaptive") {
+    throw new Error("Aquest intent no es adaptatiu.");
+  }
+
+  const currentState = attempt.engineState as AdaptiveEngineState | null;
+  if (!currentState) {
+    throw new Error("Falta l'estat del motor adaptatiu.");
+  }
+
+  if (!currentState.currentItem) {
+    throw new Error("No hi ha cap item pendent.");
+  }
+
+  const itemEntry = await resolveAdaptiveItemEntry({
+    stableKey: currentState.currentItem.stableKey,
+    prompt: currentState.currentItem.prompt,
+    itemType:
+      currentState.currentItem.itemType === "WORD"
+        ? ItemType.WORD
+        : ItemType.PSEUDOWORD,
+  });
+  const answeredItemType = currentState.currentItem.itemType;
+
+  const nextState = await applyAdaptiveAnswer(currentState, payload.answerBoolean, payload.rtMs);
+  const trace =
+    answeredItemType === "WORD"
+      ? nextState.wordTrace[nextState.wordTrace.length - 1]
+      : nextState.pseudowordTrace[nextState.pseudowordTrace.length - 1];
+
+  if (!trace) {
+    throw new Error("No s'ha pogut registrar la resposta adaptativa.");
+  }
+
+  await prisma.response.create({
+    data: {
+      attemptId: attempt.id,
+      itemId: itemEntry.id,
+      position: trace.position,
+      answerBoolean: trace.answerBoolean,
+      isCorrect: trace.isCorrect,
+      rtMs: trace.rtMs,
+      itemDifficulty: trace.difficulty,
+      thetaAfterItem: trace.thetaAfterItem,
+      semAfterItem: trace.semAfterItem,
+    },
+  });
+
+  if (nextState.completed) {
+    const finalMetrics = await finalizeAdaptiveAttemptState(nextState);
+
+    await prisma.attempt.update({
+      where: { id: attempt.id },
+      data: {
+        status: AttemptStatus.SCORED,
+        score: finalMetrics.accuracy * 100,
+        scaleScore: finalMetrics.scaleScore,
+        startTheta: nextState.startTheta,
+        finalTheta: nextState.currentTheta,
+        finalSem: nextState.currentSem,
+        stopReason: nextState.stopReason,
+        dPrime: finalMetrics.dPrime,
+        criterionC: finalMetrics.criterionC,
+        accuracy: finalMetrics.accuracy,
+        proficiencyBand: getBandLabel(finalMetrics.accuracy),
+        submittedAt: new Date(),
+        reviewedAt: new Date(),
+        engineVersion: nextState.engineVersion,
+        engineState: nextState,
+      },
+    });
+
+    if (attempt.sessionId) {
+      await prisma.session.update({
+        where: { id: attempt.sessionId },
+        data: {
+          status: SessionStatus.FINISHED,
+          endedAt: new Date(),
+        },
+      });
+    }
+
+    await prisma.participant.update({
+      where: { id: attempt.participantId },
+      data: {
+        lastSeenAt: new Date(),
+      },
+    });
+
+    return {
+      completed: true as const,
+      participantCode: attempt.participant.publicCode,
+    };
+  }
+
+  await prisma.attempt.update({
+    where: { id: attempt.id },
+    data: {
+      finalTheta: nextState.currentTheta,
+      finalSem: nextState.currentSem,
+      engineVersion: nextState.engineVersion,
+      engineState: nextState,
+    },
+  });
+
+  return {
+    completed: false as const,
+    state: await getAdaptiveSessionStateFromAttempt({
+      ...attempt,
+      engineState: nextState,
+      participant: attempt.participant,
+    }),
+  };
+}
+
 export async function getFullBatteryPlan(
   participantCode?: string | null,
 ): Promise<PublicBatteryPlan | null> {
@@ -893,11 +1173,11 @@ export async function getFullBatteryPlan(
       totalSteps: 1,
       completedSteps: participantCode ? 0 : 0,
       participantCode: participantCode ?? null,
-      nextFormCode: "fallback_v1",
+      nextFormCode: "adaptive_main",
       steps: [
         {
-          formCode: "fallback_v1",
-          label: "Fallback V1",
+          formCode: "adaptive_main",
+          label: "Adaptive Main",
           testName: "TALCAT Pilot",
           estimatedMinutes: 8,
           completed: false,
@@ -969,6 +1249,9 @@ export async function startFullBattery(payload: {
   fullName?: string;
   email?: string;
   participantCode?: string;
+  age?: number | null;
+  selfReportedCatalan?: number | null;
+  isNative?: boolean | null;
 }) {
   const participant = await upsertPublicParticipant(payload);
   const plan = await getFullBatteryPlan(participant.publicCode);
@@ -988,6 +1271,9 @@ export async function startFullBattery(payload: {
     fullName: payload.fullName,
     email: payload.email,
     participantCode: participant.publicCode,
+    age: payload.age,
+    selfReportedCatalan: payload.selfReportedCatalan,
+    isNative: payload.isNative,
   });
 
   return {
@@ -1020,9 +1306,7 @@ export async function getResultSnapshot(code: string) {
   }
 
   const latest = participant.attempts[0] ?? null;
-  const tests = await getActiveCatalog();
   const batteryPlan = await getFullBatteryPlan(participant.publicCode);
-  const attemptedCodes = new Set(participant.attempts.map((attempt) => attempt.form.code));
   const nextSteps: ResultSnapshot["nextSteps"] = [];
   const nextBatteryStep =
     batteryPlan?.steps.find((step) => !step.completed) ?? null;
@@ -1039,27 +1323,6 @@ export async function getResultSnapshot(code: string) {
     });
   }
 
-  const talcatForms = tests
-    .filter(isTalcatTest)
-    .flatMap((test) =>
-      test.forms.map((form) => ({
-        code: form.code,
-        label: form.label,
-        testName: test.name,
-      })),
-    )
-    .filter((form) => !attemptedCodes.has(form.code));
-
-  for (const form of talcatForms.slice(0, 2)) {
-    nextSteps.push({
-      title: `${form.testName} - ${form.label}`,
-      description:
-        "Si l'equip de recerca t'ho ha indicat, pots completar una altra forma del TALCAT amb el mateix codi.",
-      href: `/proves/${form.code}?codi=${participant.publicCode}`,
-      ctaLabel: "Fes aquesta forma",
-    });
-  }
-
   return {
     participantCode: participant.publicCode,
     participantName: participant.fullName,
@@ -1073,7 +1336,7 @@ export async function getResultSnapshot(code: string) {
           accuracy: latest.accuracy,
           dPrime: latest.dPrime,
           criterionC: latest.criterionC,
-          score: latest.score,
+          score: latest.scaleScore ?? latest.score,
           proficiencyBand: latest.proficiencyBand,
           correctCount:
             latest.responses.length > 0

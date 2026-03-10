@@ -75,6 +75,8 @@ model Participant {
   fullName       String?
   email          String?
   birthYear      Int?
+  selfReportedCatalan Float?
+  isNative       Boolean?
   homeRegion     String?
   catalanProfile String?
   consentAt      DateTime?
@@ -113,6 +115,7 @@ model Form {
   version         Int
   label           String
   isPrimary       Boolean    @default(false)
+  deliveryMode    String     @default("fixed")
   timeLimitSec    Int?
   itemCount       Int
   wordCount       Int
@@ -195,6 +198,14 @@ model Attempt {
   sessionId       String?
   status          AttemptStatus @default(IN_PROGRESS)
   score           Float?
+  scaleScore      Float?
+  startTheta      Float?
+  finalTheta      Float?
+  finalSem        Float?
+  stopReason      String?
+  deliveryMode    String        @default("fixed")
+  engineVersion   String?
+  engineState     Json?
   proficiencyBand String?
   dPrime          Float?
   criterionC      Float?
@@ -219,6 +230,9 @@ model Response {
   answerBoolean Boolean?
   isCorrect     Boolean?
   rtMs          Int?
+  itemDifficulty Float?
+  thetaAfterItem Float?
+  semAfterItem   Float?
   flagged       Boolean       @default(false)
   createdAt     DateTime      @default(now())
   attempt       Attempt       @relation(fields: [attemptId], references: [id], onDelete: Cascade)

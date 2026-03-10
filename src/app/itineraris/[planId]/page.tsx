@@ -34,6 +34,14 @@ export default async function PublicPlanPage({ params, searchParams }: Props) {
       fullName: String(formData.get("fullName") ?? ""),
       email: String(formData.get("email") ?? ""),
       participantCode: String(formData.get("participantCode") ?? ""),
+      age: Number(formData.get("age") ?? NaN),
+      selfReportedCatalan: Number(formData.get("selfReportedCatalan") ?? NaN),
+      isNative:
+        String(formData.get("isNative") ?? "") === "yes"
+          ? true
+          : String(formData.get("isNative") ?? "") === "no"
+            ? false
+            : null,
     });
 
     if (!result.attemptId) {
@@ -118,6 +126,50 @@ export default async function PublicPlanPage({ params, searchParams }: Props) {
                   className="w-full rounded-[20px] border border-white/12 bg-white/92 px-4 py-3 text-[#18261e] outline-none"
                   placeholder="Escriu el teu nom"
                 />
+              </label>
+
+              <label className="text-sm text-[#d7d3cb]">
+                <span className="mb-2 block font-medium text-white">
+                  Edat
+                </span>
+                <input
+                  type="number"
+                  name="age"
+                  min="12"
+                  max="120"
+                  className="w-full rounded-[20px] border border-white/12 bg-white/92 px-4 py-3 text-[#18261e] outline-none"
+                  placeholder="Ex. 17"
+                />
+              </label>
+
+              <label className="text-sm text-[#d7d3cb]">
+                <span className="mb-2 block font-medium text-white">
+                  Nivel de catala (0-10)
+                </span>
+                <input
+                  type="number"
+                  name="selfReportedCatalan"
+                  min="0"
+                  max="10"
+                  step="1"
+                  className="w-full rounded-[20px] border border-white/12 bg-white/92 px-4 py-3 text-[#18261e] outline-none"
+                  placeholder="Ex. 7"
+                />
+              </label>
+
+              <label className="text-sm text-[#d7d3cb]">
+                <span className="mb-2 block font-medium text-white">
+                  El catala es llengua inicial?
+                </span>
+                <select
+                  name="isNative"
+                  className="w-full rounded-[20px] border border-white/12 bg-white/92 px-4 py-3 text-[#18261e] outline-none"
+                  defaultValue=""
+                >
+                  <option value="">Prefereixo no dir-ho</option>
+                  <option value="yes">Si</option>
+                  <option value="no">No</option>
+                </select>
               </label>
 
               <label className="text-sm text-[#d7d3cb]">

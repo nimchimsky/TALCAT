@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -104,11 +105,19 @@ function parseReleaseMetrics(markdown: string) {
   return { metrics, sizes };
 }
 
+function resolveWorkspaceDir(segment: string) {
+  const localDir = path.join(process.cwd(), segment);
+  if (existsSync(localDir)) {
+    return localDir;
+  }
+
+  return path.resolve(process.cwd(), "..", segment);
+}
+
 function getDataPaths() {
-  const rootDir = path.resolve(process.cwd(), "..");
-  const formsDir = process.env.TALCAT_DATA_DIR ?? path.resolve(rootDir, "data", "forms");
-  const reportsDir = path.resolve(rootDir, "reports");
-  const pilotDir = path.resolve(rootDir, "data", "pilot");
+  const formsDir = process.env.TALCAT_DATA_DIR ?? resolveWorkspaceDir(path.join("data", "forms"));
+  const reportsDir = resolveWorkspaceDir("reports");
+  const pilotDir = resolveWorkspaceDir(path.join("data", "pilot"));
 
   return {
     v1Path: path.join(formsDir, "short_form_v1_items.csv"),
@@ -227,6 +236,23 @@ async function importPilotCatalog(
 
   const itemCache = new Map<string, { id: string }>();
 
+  if (formCatalog.adaptive_main) {
+    await prisma.form.create({
+      data: {
+        testId: test.id,
+        code: formCatalog.adaptive_main.code,
+        version: 1,
+        label: formCatalog.adaptive_main.label,
+        isPrimary: true,
+        deliveryMode: formCatalog.adaptive_main.delivery_mode,
+        itemCount: 0,
+        wordCount: 0,
+        pseudowordCount: 0,
+        timeLimitSec: 480,
+      },
+    });
+  }
+
   for (const formEntry of formCatalog.forms) {
     const form = await prisma.form.create({
       data: {
@@ -234,7 +260,8 @@ async function importPilotCatalog(
         code: formEntry.code,
         version: 1,
         label: formEntry.label,
-        isPrimary: formEntry.is_primary,
+        isPrimary: false,
+        deliveryMode: formEntry.delivery_mode,
         itemCount: formEntry.item_count,
         wordCount: formEntry.word_count,
         pseudowordCount: formEntry.pseudoword_count,
@@ -344,6 +371,7 @@ async function importLegacyCatalog(
         version: versionNumber,
         label: `Forma ${formVersion.toUpperCase()}`,
         isPrimary: formVersion === "v1",
+        deliveryMode: "fixed_fallback",
         itemCount: formRows.length,
         wordCount,
         pseudowordCount,
