@@ -94,13 +94,13 @@ export default async function ResultsLookupPage({ searchParams }: Props) {
                 <div className="rounded-[24px] bg-white/80 p-4">
                   <p className="text-sm text-slate-500">d&apos;</p>
                   <p className="mt-2 text-3xl font-semibold text-slate-950">
-                    {snapshot.latestAttempt.dPrime ?? "—"}
+                    {snapshot.latestAttempt.dPrime ?? "-"}
                   </p>
                 </div>
                 <div className="rounded-[24px] bg-white/80 p-4">
                   <p className="text-sm text-slate-500">Criteri</p>
                   <p className="mt-2 text-3xl font-semibold text-slate-950">
-                    {snapshot.latestAttempt.criterionC ?? "—"}
+                    {snapshot.latestAttempt.criterionC ?? "-"}
                   </p>
                 </div>
                 <div className="rounded-[24px] bg-white/80 p-4">
@@ -116,12 +116,13 @@ export default async function ResultsLookupPage({ searchParams }: Props) {
                   Darrer intent
                 </h3>
                 <p className="mt-2 text-sm leading-7 text-slate-600">
-                  {snapshot.latestAttempt.testName} · {snapshot.latestAttempt.formLabel}
+                  {snapshot.latestAttempt.testName} -{" "}
+                  {snapshot.latestAttempt.formLabel}
                 </p>
                 <p className="text-sm leading-7 text-slate-600">
                   Estat: {snapshot.latestAttempt.status}
                   {snapshot.latestAttempt.submittedAt
-                    ? ` · enviat ${formatDateTime(snapshot.latestAttempt.submittedAt)}`
+                    ? ` - enviat ${formatDateTime(snapshot.latestAttempt.submittedAt)}`
                     : ""}
                 </p>
                 <p className="mt-2 text-sm leading-7 text-slate-600">

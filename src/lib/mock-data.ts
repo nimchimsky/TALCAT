@@ -239,11 +239,3 @@ export const mockActivity: ActivitySummary[] = [
     createdAt: "2026-03-10T09:22:00.000Z",
   },
 ];
-
-export const deployChecklist = [
-  "Crear un repositori GitHub exclusiu per a la webapp o convertir aquesta carpeta en repo.",
-  "Crear projecte a Railway i afegir-hi servei PostgreSQL.",
-  "Configurar DATABASE_URL, NEXT_PUBLIC_APP_URL i APP_NAME a Railway.",
-  "Executar prisma db push i prisma db seed contra la base de dades de Railway.",
-  "Connectar el repositori GitHub a Railway i activar deploy automatic a cada push a main.",
-];

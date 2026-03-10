@@ -27,7 +27,7 @@ export function AppSidebar() {
       <aside className="hidden w-72 shrink-0 lg:block">
         <div className="card-surface sticky top-6 space-y-8 p-6">
           <div className="space-y-3">
-            <p className="eyebrow">TALCAT · recerca</p>
+            <p className="eyebrow">TALCAT - recerca</p>
             <div className="space-y-2">
               <h1 className="font-display text-3xl leading-tight text-slate-950">
                 Espai d&apos;investigacio
@@ -67,7 +67,7 @@ export function AppSidebar() {
               Seguiment intern
             </div>
             <p className="leading-6 text-slate-200">
-              Aquest accés es reserva per a l&apos;equip investigador i la
+              Aquest acces es reserva per a l&apos;equip investigador i la
               coordinacio de camp.
             </p>
           </div>

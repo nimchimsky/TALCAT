@@ -69,6 +69,17 @@ export type ResultSnapshot = {
   attemptsCount: number;
 };
 
+const PUBLIC_TEST_SUMMARY =
+  "Prova breu de decisio lexical en catala per identificar paraules i no paraules.";
+
+function buildPublicTestDescription(
+  estimatedMinutes: number,
+  formsCount: number,
+) {
+  const formsLabel = formsCount === 1 ? "1 forma disponible" : `${formsCount} formes disponibles`;
+  return `${PUBLIC_TEST_SUMMARY} Durada aproximada de ${estimatedMinutes} minuts i ${formsLabel}.`;
+}
+
 const fallbackHomeData: PublicHomeData = {
   tests: [
     {
@@ -171,7 +182,10 @@ export async function getPublicHomeData(): Promise<PublicHomeData> {
     tests: tests.map((test) => ({
       id: test.id,
       name: test.name,
-      description: test.description,
+      description: buildPublicTestDescription(
+        test.estimatedMinutes,
+        test.forms.length,
+      ),
       estimatedMinutes: test.estimatedMinutes,
       forms: test.forms.map((form) => ({
         code: form.code,
@@ -185,6 +199,13 @@ export async function getPublicHomeData(): Promise<PublicHomeData> {
       })),
     })),
   };
+}
+
+export function getPublicTestSummary(
+  estimatedMinutes: number,
+  formsCount = 1,
+) {
+  return buildPublicTestDescription(estimatedMinutes, formsCount);
 }
 
 export async function getPublicFormByCode(formCode: string) {

@@ -1,7 +1,6 @@
 import { AttemptStatus, SessionStatus, TestStatus } from "@prisma/client";
 
 import {
-  deployChecklist,
   mockActivity,
   mockAttempts,
   mockMetrics,
@@ -24,7 +23,6 @@ export type AdminSnapshot = {
   sessions: SessionSummary[];
   attempts: AttemptSummary[];
   activity: ActivitySummary[];
-  deployChecklist: string[];
 };
 
 function fallbackSnapshot(): AdminSnapshot {
@@ -35,7 +33,6 @@ function fallbackSnapshot(): AdminSnapshot {
     sessions: mockSessions,
     attempts: mockAttempts,
     activity: mockActivity,
-    deployChecklist,
   };
 }
 
@@ -121,7 +118,7 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
         {
           label: "Participants registrats",
           value: `${participantsCount}`,
-          detail: "cens actual sincronitzat amb PostgreSQL",
+          detail: "cens actual registrat a la plataforma",
         },
         {
           label: "Sessions avui",
@@ -131,7 +128,7 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
         {
           label: "Resultats revisats",
           value: `${scoredToday}`,
-          detail: "intents ja puntuats i llestos per reporting",
+          detail: "intents ja puntuats i llestos per consulta",
         },
       ],
       tests: tests.map((item) => ({
@@ -184,7 +181,6 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
         actorEmail: item.actorEmail ?? "system",
         createdAt: item.createdAt.toISOString(),
       })),
-      deployChecklist,
     };
   } catch {
     return fallbackSnapshot();

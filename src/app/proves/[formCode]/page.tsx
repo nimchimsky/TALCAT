@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
-import { getPublicFormByCode, createPublicAttempt } from "@/lib/public-data";
+import {
+  createPublicAttempt,
+  getPublicFormByCode,
+  getPublicTestSummary,
+} from "@/lib/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -34,8 +38,8 @@ export default async function PublicFormPage({ params }: Props) {
     <div className="mx-auto w-full max-w-[980px] px-4 py-6 sm:px-6 sm:py-10">
       <PageHeader
         eyebrow={form.code}
-        title={`${form.test.name} · ${form.label}`}
-        description={form.test.description}
+        title={`${form.test.name} - ${form.label}`}
+        description={getPublicTestSummary(form.test.estimatedMinutes)}
       />
 
       <section className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
@@ -61,7 +65,7 @@ export default async function PublicFormPage({ params }: Props) {
           </h2>
           <p className="mt-2 text-sm leading-7 text-slate-600">
             Pots escriure el teu nom o un alias. L&apos;email es opcional i
-            només serveix per identificar el resultat si l&apos;equip de recerca
+            nomes serveix per identificar el resultat si l&apos;equip de recerca
             te l&apos;ha demanat.
           </p>
 

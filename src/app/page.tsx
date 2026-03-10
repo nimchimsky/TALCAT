@@ -135,7 +135,7 @@ export default async function HomePage() {
                           {form.itemCount} items
                         </p>
                         <p>
-                          {form.wordCount} paraules · {form.pseudowordCount} no
+                          {form.wordCount} paraules - {form.pseudowordCount} no
                           paraules
                         </p>
                       </div>
