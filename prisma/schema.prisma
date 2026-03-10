@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  ANALYST
+  REVIEWER
+}
+
+enum TestStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum SessionStatus {
+  PENDING
+  LIVE
+  FINISHED
+  EXPIRED
+}
+
+enum AttemptStatus {
+  INVITED
+  IN_PROGRESS
+  SUBMITTED
+  SCORED
+  FLAGGED
+}
+
+enum ItemType {
+  WORD
+  PSEUDOWORD
+  QUESTION
+}
+
+model Organization {
+  id           String        @id @default(cuid())
+  name         String
+  slug         String        @unique
+  locale       String        @default("ca-ES")
+  timezone     String        @default("Europe/Madrid")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  adminUsers   AdminUser[]
+  participants Participant[]
+  tests        Test[]
+  auditLogs    AuditLog[]
+}
+
+model AdminUser {
+  id             String       @id @default(cuid())
+  organizationId String
+  email          String       @unique
+  name           String
+  role           UserRole     @default(ADMIN)
+  authProvider   String       @default("pending")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Participant {
+  id             String       @id @default(cuid())
+  organizationId String
+  publicCode     String       @unique
+  fullName       String?
+  email          String?
+  birthYear      Int?
+  homeRegion     String?
+  catalanProfile String?
+  consentAt      DateTime?
+  lastSeenAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignments    Assignment[]
+  sessions       Session[]
+  attempts       Attempt[]
+}
+
+model Test {
+  id               String       @id @default(cuid())
+  organizationId   String
+  slug             String       @unique
+  name             String
+  description      String
+  status           TestStatus   @default(DRAFT)
+  deliveryMode     String       @default("mobile-first")
+  scoreModel       String       @default("word-primary")
+  estimatedMinutes Int
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  forms            Form[]
+  assignments      Assignment[]
+  sessions         Session[]
+  attempts         Attempt[]
+}
+
+model Form {
+  id              String     @id @default(cuid())
+  testId          String
+  code            String     @unique
+  version         Int
+  label           String
+  isPrimary       Boolean    @default(false)
+  timeLimitSec    Int?
+  itemCount       Int
+  wordCount       Int
+  pseudowordCount Int
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  test            Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
+  items           FormItem[]
+  attempts        Attempt[]
+}
+
+model ItemBankEntry {
+  id         String     @id @default(cuid())
+  stableKey  String     @unique
+  prompt     String
+  itemType   ItemType
+  difficulty Float?
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  formItems  FormItem[]
+  responses  Response[]
+}
+
+model FormItem {
+  id         String        @id @default(cuid())
+  formId     String
+  itemId     String
+  position   Int
+  blockLabel String?
+  isAnchor   Boolean       @default(false)
+  form       Form          @relation(fields: [formId], references: [id], onDelete: Cascade)
+  item       ItemBankEntry @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, position])
+}
+
+model Assignment {
+  id              String        @id @default(cuid())
+  participantId   String
+  testId          String
+  invitationToken String        @unique
+  invitedByEmail  String?
+  channel         String        @default("email")
+  scheduledAt     DateTime?
+  expiresAt       DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  status          AttemptStatus @default(INVITED)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  participant     Participant   @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  test            Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
+  attempt         Attempt?
+}
+
+model Session {
+  id            String        @id @default(cuid())
+  participantId String
+  testId        String?
+  deviceLabel   String?
+  deviceGroup   String?
+  startedAt     DateTime
+  endedAt       DateTime?
+  ipCountry     String?
+  status        SessionStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  participant   Participant   @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  test          Test?         @relation(fields: [testId], references: [id], onDelete: SetNull)
+  attempts      Attempt[]
+}
+
+model Attempt {
+  id              String        @id @default(cuid())
+  participantId   String
+  testId          String
+  formId          String
+  assignmentId    String?       @unique
+  sessionId       String?
+  status          AttemptStatus @default(IN_PROGRESS)
+  score           Float?
+  proficiencyBand String?
+  dPrime          Float?
+  criterionC      Float?
+  accuracy        Float?
+  submittedAt     DateTime?
+  reviewedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  participant     Participant   @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  test            Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
+  form            Form          @relation(fields: [formId], references: [id], onDelete: Cascade)
+  assignment      Assignment?   @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  session         Session?      @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  responses       Response[]
+}
+
+model Response {
+  id            String        @id @default(cuid())
+  attemptId     String
+  itemId        String
+  position      Int
+  answerBoolean Boolean?
+  isCorrect     Boolean?
+  rtMs          Int?
+  flagged       Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  attempt       Attempt       @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  item          ItemBankEntry @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, position])
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  actorEmail     String?
+  action         String
+  entityType     String
+  entityId       String
+  summary        String
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
