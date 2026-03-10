@@ -6,6 +6,12 @@ import { formatDateTime } from "@/lib/formatters";
 
 export const dynamic = "force-dynamic";
 
+function getTestPresentation(status: string) {
+  return status === "ACTIVE"
+    ? "Prova operativa disponible per al treball de camp."
+    : "Prova en preparacio per a una propera onada.";
+}
+
 export default async function AdminTestsPage() {
   const snapshot = await getAdminSnapshot();
 
@@ -35,9 +41,8 @@ export default async function AdminTestsPage() {
                     </h3>
                     <StatusBadge status={test.status} />
                   </div>
-                  <p className="text-sm text-slate-500">{test.slug}</p>
                   <p className="text-sm leading-6 text-slate-600">
-                    Model: {test.scoreModel} - administracio {test.deliveryMode}
+                    {getTestPresentation(test.status)}
                   </p>
                 </div>
 

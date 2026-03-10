@@ -7,6 +7,37 @@ import { formatDateTime, formatPercent } from "@/lib/formatters";
 
 export const dynamic = "force-dynamic";
 
+function getTestStageLabel(status: string) {
+  return status === "ACTIVE"
+    ? "Disponible per al treball de camp."
+    : "En preparacio per a una fase posterior.";
+}
+
+function getActivityLabel(action: string) {
+  switch (action) {
+    case "catalog.imported":
+      return "Cataleg actualitzat";
+    case "attempt.started":
+      return "Sessio iniciada";
+    case "result.reviewed":
+      return "Resultat revisat";
+    case "session.flagged":
+      return "Sessio revisada";
+    case "test.activated":
+      return "Prova activada";
+    default:
+      return "Activitat registrada";
+  }
+}
+
+function getActivitySummary(action: string, summary: string) {
+  if (action === "catalog.imported") {
+    return "S'ha actualitzat el cataleg operatiu amb les formes disponibles.";
+  }
+
+  return summary;
+}
+
 export default async function AdminDashboardPage() {
   const snapshot = await getAdminSnapshot();
 
@@ -43,7 +74,9 @@ export default async function AdminDashboardPage() {
                       </h4>
                       <StatusBadge status={test.status} />
                     </div>
-                    <p className="text-sm text-slate-500">{test.slug}</p>
+                    <p className="text-sm text-slate-500">
+                      {getTestStageLabel(test.status)}
+                    </p>
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm text-slate-600">
                     <div>
@@ -64,9 +97,9 @@ export default async function AdminDashboardPage() {
                     </div>
                     <div>
                       <p className="font-medium text-slate-950">
-                        {test.scoreModel}
+                        online
                       </p>
-                      <p>index</p>
+                      <p>modalitat</p>
                     </div>
                   </div>
                 </div>
@@ -87,17 +120,17 @@ export default async function AdminDashboardPage() {
               >
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-slate-950">
-                    {activity.action}
+                    {getActivityLabel(activity.action)}
                   </p>
                   <p className="text-xs text-slate-500">
                     {formatDateTime(activity.createdAt)}
                   </p>
                 </div>
                 <p className="text-sm leading-6 text-slate-600">
-                  {activity.summary}
+                  {getActivitySummary(activity.action, activity.summary)}
                 </p>
                 <p className="mt-3 text-xs text-slate-500">
-                  Actor: {activity.actorEmail}
+                  Registre intern
                 </p>
               </div>
             ))}
