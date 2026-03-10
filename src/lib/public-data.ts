@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 import {
   AttemptStatus,
@@ -10,6 +10,25 @@ import { headers } from "next/headers";
 
 import { computeDPrime, getBandLabel } from "@/lib/scoring";
 import { prisma } from "@/lib/prisma";
+
+type CatalogForm = {
+  id: string;
+  code: string;
+  label: string;
+  version: number;
+  isPrimary: boolean;
+  itemCount: number;
+  wordCount: number;
+  pseudowordCount: number;
+};
+
+type CatalogTest = {
+  id: string;
+  slug: string;
+  name: string;
+  estimatedMinutes: number;
+  forms: CatalogForm[];
+};
 
 export type PublicFormSummary = {
   code: string;
@@ -30,8 +49,19 @@ export type PublicTestSummary = {
   forms: PublicFormSummary[];
 };
 
+export type PublicJourneySummary = {
+  id: "quick" | "full";
+  title: string;
+  description: string;
+  note: string;
+  estimatedMinutes: number;
+  ctaLabel: string;
+  href: string;
+};
+
 export type PublicHomeData = {
   tests: PublicTestSummary[];
+  journeys: PublicJourneySummary[];
 };
 
 export type RunnerItem = {
@@ -51,6 +81,25 @@ export type PublicAttemptSession = {
   items: RunnerItem[];
 };
 
+export type PublicBatteryPlan = {
+  id: "full";
+  title: string;
+  description: string;
+  note: string;
+  estimatedMinutes: number;
+  totalSteps: number;
+  completedSteps: number;
+  participantCode: string | null;
+  nextFormCode: string | null;
+  steps: Array<{
+    formCode: string;
+    label: string;
+    testName: string;
+    estimatedMinutes: number;
+    completed: boolean;
+  }>;
+};
+
 export type ResultSnapshot = {
   participantCode: string;
   participantName: string | null;
@@ -65,8 +114,25 @@ export type ResultSnapshot = {
     criterionC: number | null;
     score: number | null;
     proficiencyBand: string | null;
+    correctCount: number | null;
+    totalItems: number | null;
+    averageRtMs: number | null;
+    accuracySummary: string | null;
+    sensitivitySummary: string | null;
+    responseStyleSummary: string | null;
   } | null;
   attemptsCount: number;
+  batteryProgress: {
+    completed: number;
+    total: number;
+    href: string;
+  };
+  nextSteps: Array<{
+    title: string;
+    description: string;
+    href: string;
+    ctaLabel: string;
+  }>;
 };
 
 const PUBLIC_TEST_SUMMARY =
@@ -76,7 +142,8 @@ function buildPublicTestDescription(
   estimatedMinutes: number,
   formsCount: number,
 ) {
-  const formsLabel = formsCount === 1 ? "1 forma disponible" : `${formsCount} formes disponibles`;
+  const formsLabel =
+    formsCount === 1 ? "1 forma disponible" : `${formsCount} formes disponibles`;
   return `${PUBLIC_TEST_SUMMARY} Durada aproximada de ${estimatedMinutes} minuts i ${formsLabel}.`;
 }
 
@@ -112,6 +179,26 @@ const fallbackHomeData: PublicHomeData = {
       ],
     },
   ],
+  journeys: [
+    {
+      id: "quick",
+      title: "Avaluacio rapida",
+      description: "Completa una sola forma TALCAT per obtenir una lectura breu del rendiment.",
+      note: "Pots triar la versio que t'indiqui l'equip de recerca.",
+      estimatedMinutes: 8,
+      ctaLabel: "Tria una versio",
+      href: "#versions-talcat",
+    },
+    {
+      id: "full",
+      title: "Bateria completa",
+      description: "Segueix el recorregut complet i afegeix, quan estiguin actives, les proves de validacio.",
+      note: "Ara mateix la bateria coincideix amb el TALCAT principal.",
+      estimatedMinutes: 8,
+      ctaLabel: "Comenca la bateria",
+      href: "/itineraris/completa",
+    },
+  ],
 };
 
 function inferDeviceGroup(userAgent: string | null) {
@@ -129,6 +216,171 @@ function inferDeviceGroup(userAgent: string | null) {
   }
 
   return "desktop";
+}
+
+function isTalcatTest(test: { slug: string; name: string }) {
+  const normalized = `${test.slug} ${test.name}`.toLowerCase();
+  return normalized.includes("talcat");
+}
+
+function getPrimaryForm(test: CatalogTest) {
+  return [...test.forms].sort((left, right) => {
+    if (left.isPrimary !== right.isPrimary) {
+      return left.isPrimary ? -1 : 1;
+    }
+
+    return left.version - right.version;
+  })[0] ?? null;
+}
+
+function getHashKey(seed: string, value: string) {
+  return createHash("sha256").update(`${seed}:${value}`).digest("hex");
+}
+
+function getAttemptSequence<
+  T extends {
+    item: {
+      id: string;
+      prompt: string;
+      itemType: ItemType;
+    };
+  },
+>(attemptId: string, items: T[]) {
+  return [...items]
+    .sort((left, right) =>
+      getHashKey(attemptId, left.item.id).localeCompare(
+        getHashKey(attemptId, right.item.id),
+      ),
+    )
+    .map((entry, index) => ({
+      ...entry,
+      runPosition: index + 1,
+    }));
+}
+
+function getAccuracySummary(accuracy: number | null) {
+  if (accuracy === null) {
+    return null;
+  }
+
+  if (accuracy >= 0.9) {
+    return "Has distingit molt be entre paraules i no paraules en aquesta sessio.";
+  }
+
+  if (accuracy >= 0.8) {
+    return "Has mantingut un nivell alt de precisio durant la prova.";
+  }
+
+  if (accuracy >= 0.65) {
+    return "El rendiment es intermedi i encara hi ha marge de consolidacio.";
+  }
+
+  return "La prova indica que encara hi ha força marge per consolidar la distincio lexical.";
+}
+
+function getSensitivitySummary(dPrime: number | null) {
+  if (dPrime === null) {
+    return null;
+  }
+
+  if (dPrime >= 2) {
+    return "La sensibilitat es alta: has separat amb claredat les paraules de les pseudoparaules.";
+  }
+
+  if (dPrime >= 1) {
+    return "La sensibilitat es funcional: la majoria de decisions lexicals van en la direccio correcta.";
+  }
+
+  return "La sensibilitat es baixa: et pot convenir repetir la prova en bones condicions o ampliar l'avaluacio.";
+}
+
+function getResponseStyleSummary(criterionC: number | null) {
+  if (criterionC === null) {
+    return null;
+  }
+
+  if (criterionC >= 0.25) {
+    return "L'estil de resposta ha estat prudent: tendeixes a reservar el si per a paraules molt segures.";
+  }
+
+  if (criterionC <= -0.25) {
+    return "L'estil de resposta ha estat arriscat: tendeixes a acceptar mes items com a paraula.";
+  }
+
+  return "L'estil de resposta ha estat equilibrat, sense un biaix clar cap al si o cap al no.";
+}
+
+function getAverageRtMs(
+  responses: Array<{
+    rtMs: number | null;
+  }>,
+) {
+  const values = responses
+    .map((response) => response.rtMs)
+    .filter((value): value is number => typeof value === "number" && value >= 0);
+
+  if (values.length === 0) {
+    return null;
+  }
+
+  return Math.round(
+    values.reduce((total, value) => total + value, 0) / values.length,
+  );
+}
+
+function buildJourneys(tests: CatalogTest[]): PublicJourneySummary[] {
+  const talcatTests = tests.filter(isTalcatTest);
+  const talcatForms = talcatTests.flatMap((test) => test.forms);
+  const primaryForms = tests
+    .map((test) => ({
+      test,
+      form: getPrimaryForm(test),
+    }))
+    .filter(
+      (
+        entry,
+      ): entry is {
+        test: CatalogTest;
+        form: CatalogForm;
+      } => Boolean(entry.form),
+    );
+
+  const fullMinutes = primaryForms.reduce(
+    (total, entry) => total + entry.test.estimatedMinutes,
+    0,
+  );
+  const validationCount = primaryForms.filter(
+    (entry) => !isTalcatTest(entry.test),
+  ).length;
+
+  return [
+    {
+      id: "quick",
+      title: "Avaluacio rapida",
+      description:
+        "Completa una sola forma TALCAT per obtenir una lectura breu i immediata.",
+      note:
+        talcatForms.length > 1
+          ? "Pots triar la versio indicada per l'equip de recerca."
+          : "La forma principal et dona una estimacio rapida del rendiment actual.",
+      estimatedMinutes: talcatTests[0]?.estimatedMinutes ?? tests[0]?.estimatedMinutes ?? 8,
+      ctaLabel: "Tria una versio",
+      href: "#versions-talcat",
+    },
+    {
+      id: "full",
+      title: "Bateria completa",
+      description:
+        "Segueix el recorregut complet del participant i afegeix les proves de validacio actives.",
+      note:
+        validationCount > 0
+          ? `Ara mateix inclou TALCAT i ${validationCount} prova${validationCount === 1 ? "" : "es"} de validacio.`
+          : "Ara mateix la bateria completa coincideix amb el TALCAT principal; quan s'activin mes proves s'afegiran automaticament.",
+      estimatedMinutes: fullMinutes || talcatTests[0]?.estimatedMinutes || 8,
+      ctaLabel: "Comenca la bateria",
+      href: "/itineraris/completa",
+    },
+  ];
 }
 
 async function getOrganizationId() {
@@ -159,45 +411,116 @@ async function generateParticipantCode() {
   throw new Error("No s'ha pogut generar un codi unic.");
 }
 
+async function getActiveCatalog(): Promise<CatalogTest[]> {
+  const tests = await prisma.test.findMany({
+    where: { status: TestStatus.ACTIVE },
+    include: {
+      forms: {
+        orderBy: [{ isPrimary: "desc" }, { version: "asc" }],
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return tests.map((test) => ({
+    id: test.id,
+    slug: test.slug,
+    name: test.name,
+    estimatedMinutes: test.estimatedMinutes,
+    forms: test.forms.map((form) => ({
+      id: form.id,
+      code: form.code,
+      label: form.label,
+      version: form.version,
+      isPrimary: form.isPrimary,
+      itemCount: form.itemCount,
+      wordCount: form.wordCount,
+      pseudowordCount: form.pseudowordCount,
+    })),
+  }));
+}
+
+async function upsertPublicParticipant(payload: {
+  fullName?: string;
+  email?: string;
+  participantCode?: string;
+}) {
+  const now = new Date();
+  const fullName = payload.fullName?.trim() || null;
+  const email = payload.email?.trim() || null;
+  const participantCode = payload.participantCode?.trim().toUpperCase() || null;
+
+  if (participantCode) {
+    const existing = await prisma.participant.findUnique({
+      where: { publicCode: participantCode },
+    });
+
+    if (!existing) {
+      throw new Error("No hem trobat aquest codi de participant.");
+    }
+
+    return prisma.participant.update({
+      where: { id: existing.id },
+      data: {
+        fullName: fullName ?? existing.fullName,
+        email: email ?? existing.email,
+        consentAt: existing.consentAt ?? now,
+        lastSeenAt: now,
+      },
+    });
+  }
+
+  const organizationId = await getOrganizationId();
+  const publicCode = await generateParticipantCode();
+
+  return prisma.participant.create({
+    data: {
+      organizationId,
+      publicCode,
+      fullName,
+      email,
+      consentAt: now,
+      lastSeenAt: now,
+    },
+  });
+}
+
+function mapCatalogToPublicTests(tests: CatalogTest[]): PublicTestSummary[] {
+  return tests.map((test) => ({
+    id: test.id,
+    name: test.name,
+    description: buildPublicTestDescription(
+      test.estimatedMinutes,
+      test.forms.length,
+    ),
+    estimatedMinutes: test.estimatedMinutes,
+    forms: test.forms.map((form) => ({
+      code: form.code,
+      label: form.label,
+      testName: test.name,
+      description: `${form.wordCount} paraules i ${form.pseudowordCount} distractors.`,
+      estimatedMinutes: test.estimatedMinutes,
+      itemCount: form.itemCount,
+      wordCount: form.wordCount,
+      pseudowordCount: form.pseudowordCount,
+    })),
+  }));
+}
+
 export async function getPublicHomeData(): Promise<PublicHomeData> {
   if (!process.env.DATABASE_URL) {
     return fallbackHomeData;
   }
 
-  const tests = await prisma.test.findMany({
-    where: { status: TestStatus.ACTIVE },
-    include: {
-      forms: {
-        orderBy: { version: "asc" },
-      },
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  const tests = await getActiveCatalog();
 
   if (tests.length === 0) {
     return fallbackHomeData;
   }
 
   return {
-    tests: tests.map((test) => ({
-      id: test.id,
-      name: test.name,
-      description: buildPublicTestDescription(
-        test.estimatedMinutes,
-        test.forms.length,
-      ),
-      estimatedMinutes: test.estimatedMinutes,
-      forms: test.forms.map((form) => ({
-        code: form.code,
-        label: form.label,
-        testName: test.name,
-        description: `${form.wordCount} paraules i ${form.pseudowordCount} distractors.`,
-        estimatedMinutes: test.estimatedMinutes,
-        itemCount: form.itemCount,
-        wordCount: form.wordCount,
-        pseudowordCount: form.pseudowordCount,
-      })),
-    })),
+    tests: mapCatalogToPublicTests(tests),
+    journeys: buildJourneys(tests),
   };
 }
 
@@ -229,7 +552,7 @@ export async function getPublicFormByCode(formCode: string) {
 
 export async function createPublicAttempt(
   formCode: string,
-  payload: { fullName?: string; email?: string },
+  payload: { fullName?: string; email?: string; participantCode?: string },
 ) {
   const form = await getPublicFormByCode(formCode);
 
@@ -237,22 +560,25 @@ export async function createPublicAttempt(
     throw new Error("Aquesta prova no esta disponible ara mateix.");
   }
 
+  const participant = await upsertPublicParticipant(payload);
+  const existingAttempt = await prisma.attempt.findFirst({
+    where: {
+      participantId: participant.id,
+      formId: form.id,
+      status: AttemptStatus.IN_PROGRESS,
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+
+  if (existingAttempt) {
+    return existingAttempt.id;
+  }
+
   const organizationId = await getOrganizationId();
-  const publicCode = await generateParticipantCode();
   const headerStore = await headers();
   const userAgent = headerStore.get("user-agent");
   const now = new Date();
-
-  const participant = await prisma.participant.create({
-    data: {
-      organizationId,
-      publicCode,
-      fullName: payload.fullName?.trim() || null,
-      email: payload.email?.trim() || null,
-      consentAt: now,
-      lastSeenAt: now,
-    },
-  });
 
   const session = await prisma.session.create({
     data: {
@@ -284,7 +610,7 @@ export async function createPublicAttempt(
       entityId: attempt.id,
       summary: `Iniciada una nova sessio publica per a ${form.code}.`,
       metadata: {
-        participantCode: publicCode,
+        participantCode: participant.publicCode,
         formCode: form.code,
       },
     },
@@ -320,6 +646,8 @@ export async function getAttemptSession(attemptId: string) {
     return null;
   }
 
+  const sequence = getAttemptSequence(attempt.id, attempt.form.items);
+
   return {
     attemptId: attempt.id,
     participantCode: attempt.participant.publicCode,
@@ -327,10 +655,10 @@ export async function getAttemptSession(attemptId: string) {
     testName: attempt.test.name,
     formLabel: attempt.form.label,
     formCode: attempt.form.code,
-    items: attempt.form.items.map((entry) => ({
+    items: sequence.map((entry) => ({
       itemId: entry.item.id,
       prompt: entry.item.prompt,
-      position: entry.position,
+      position: entry.runPosition,
       itemType: entry.item.itemType,
     })),
   } satisfies PublicAttemptSession;
@@ -367,9 +695,10 @@ export async function submitAttempt(
     throw new Error("No s'ha trobat la sessio.");
   }
 
+  const sequence = getAttemptSequence(attempt.id, attempt.form.items);
   const itemMap = new Map(
-    attempt.form.items.map((entry) => [
-      entry.position,
+    sequence.map((entry) => [
+      entry.runPosition,
       {
         itemId: entry.item.id,
         itemType: entry.item.itemType,
@@ -446,13 +775,15 @@ export async function submitAttempt(
     },
   });
 
-  await prisma.session.update({
-    where: { id: attempt.sessionId ?? undefined },
-    data: {
-      status: SessionStatus.FINISHED,
-      endedAt: new Date(),
-    },
-  });
+  if (attempt.sessionId) {
+    await prisma.session.update({
+      where: { id: attempt.sessionId },
+      data: {
+        status: SessionStatus.FINISHED,
+        endedAt: new Date(),
+      },
+    });
+  }
 
   await prisma.participant.update({
     where: { id: attempt.participantId },
@@ -463,6 +794,134 @@ export async function submitAttempt(
 
   return {
     participantCode: attempt.participant.publicCode,
+  };
+}
+
+export async function getFullBatteryPlan(
+  participantCode?: string | null,
+): Promise<PublicBatteryPlan | null> {
+  if (!process.env.DATABASE_URL) {
+    return {
+      id: "full",
+      title: "Bateria completa",
+      description:
+        "Segueix el recorregut complet del participant i incorpora les proves de validacio quan estiguin disponibles.",
+      note: "Ara mateix la bateria coincideix amb el TALCAT principal.",
+      estimatedMinutes: 8,
+      totalSteps: 1,
+      completedSteps: participantCode ? 0 : 0,
+      participantCode: participantCode ?? null,
+      nextFormCode: "TALCAT-V1",
+      steps: [
+        {
+          formCode: "TALCAT-V1",
+          label: "Forma V1",
+          testName: "TALCAT Release V1",
+          estimatedMinutes: 8,
+          completed: false,
+        },
+      ],
+    };
+  }
+
+  const tests = await getActiveCatalog();
+  const primarySteps = tests
+    .map((test) => ({
+      test,
+      form: getPrimaryForm(test),
+    }))
+    .filter(
+      (
+        entry,
+      ): entry is {
+        test: CatalogTest;
+        form: CatalogForm;
+      } => Boolean(entry.form),
+    );
+
+  if (primarySteps.length === 0) {
+    return null;
+  }
+
+  const participant = participantCode
+    ? await prisma.participant.findUnique({
+        where: { publicCode: participantCode.trim().toUpperCase() },
+        include: {
+          attempts: {
+            include: {
+              form: true,
+            },
+          },
+        },
+      })
+    : null;
+
+  const completedCodes = new Set(
+    (participant?.attempts ?? [])
+      .filter((attempt) => attempt.status === AttemptStatus.SCORED)
+      .map((attempt) => attempt.form.code),
+  );
+  const steps = primarySteps.map((entry) => ({
+    formCode: entry.form.code,
+    label: entry.form.label,
+    testName: entry.test.name,
+    estimatedMinutes: entry.test.estimatedMinutes,
+    completed: completedCodes.has(entry.form.code),
+  }));
+  const nextStep = steps.find((step) => !step.completed) ?? null;
+  const validationCount = primarySteps.filter(
+    (entry) => !isTalcatTest(entry.test),
+  ).length;
+
+  return {
+    id: "full",
+    title: "Bateria completa",
+    description:
+      "Recorregut pensat per al participant que ha de fer TALCAT i, quan pertoqui, les proves addicionals de validacio.",
+    note:
+      validationCount > 0
+        ? `La bateria actual inclou ${validationCount} prova${validationCount === 1 ? "" : "es"} addicional${validationCount === 1 ? "" : "s"} de validacio.`
+        : "Ara mateix nomes hi ha activa la prova principal; quan s'afegeixin mes proves apareixeran aqui sense canviar el flux.",
+    estimatedMinutes: primarySteps.reduce(
+      (total, entry) => total + entry.test.estimatedMinutes,
+      0,
+    ),
+    totalSteps: steps.length,
+    completedSteps: steps.filter((step) => step.completed).length,
+    participantCode: participant?.publicCode ?? participantCode?.trim().toUpperCase() ?? null,
+    nextFormCode: nextStep?.formCode ?? null,
+    steps,
+  };
+}
+
+export async function startFullBattery(payload: {
+  fullName?: string;
+  email?: string;
+  participantCode?: string;
+}) {
+  const participant = await upsertPublicParticipant(payload);
+  const plan = await getFullBatteryPlan(participant.publicCode);
+
+  if (!plan) {
+    throw new Error("No hi ha cap bateria activa ara mateix.");
+  }
+
+  if (!plan.nextFormCode) {
+    return {
+      participantCode: participant.publicCode,
+      attemptId: null,
+    };
+  }
+
+  const attemptId = await createPublicAttempt(plan.nextFormCode, {
+    fullName: payload.fullName,
+    email: payload.email,
+    participantCode: participant.publicCode,
+  });
+
+  return {
+    participantCode: participant.publicCode,
+    attemptId,
   };
 }
 
@@ -479,6 +938,7 @@ export async function getResultSnapshot(code: string) {
         include: {
           test: true,
           form: true,
+          responses: true,
         },
       },
     },
@@ -489,6 +949,41 @@ export async function getResultSnapshot(code: string) {
   }
 
   const latest = participant.attempts[0] ?? null;
+  const tests = await getActiveCatalog();
+  const batteryPlan = await getFullBatteryPlan(participant.publicCode);
+  const attemptedCodes = new Set(participant.attempts.map((attempt) => attempt.form.code));
+  const nextSteps: ResultSnapshot["nextSteps"] = [];
+
+  if (batteryPlan?.nextFormCode) {
+    nextSteps.push({
+      title: "Continua la bateria completa",
+      description:
+        "Segueix amb la seguent prova pendent del recorregut complet del participant.",
+      href: `/itineraris/completa?codi=${participant.publicCode}`,
+      ctaLabel: "Continua la bateria",
+    });
+  }
+
+  const talcatForms = tests
+    .filter(isTalcatTest)
+    .flatMap((test) =>
+      test.forms.map((form) => ({
+        code: form.code,
+        label: form.label,
+        testName: test.name,
+      })),
+    )
+    .filter((form) => !attemptedCodes.has(form.code));
+
+  for (const form of talcatForms.slice(0, 2)) {
+    nextSteps.push({
+      title: `${form.testName} - ${form.label}`,
+      description:
+        "Si l'equip de recerca t'ho ha indicat, pots completar una altra forma del TALCAT amb el mateix codi.",
+      href: `/proves/${form.code}?codi=${participant.publicCode}`,
+      ctaLabel: "Fes aquesta forma",
+    });
+  }
 
   return {
     participantCode: participant.publicCode,
@@ -505,8 +1000,23 @@ export async function getResultSnapshot(code: string) {
           criterionC: latest.criterionC,
           score: latest.score,
           proficiencyBand: latest.proficiencyBand,
+          correctCount:
+            latest.responses.length > 0
+              ? latest.responses.filter((response) => response.isCorrect).length
+              : null,
+          totalItems: latest.responses.length || null,
+          averageRtMs: getAverageRtMs(latest.responses),
+          accuracySummary: getAccuracySummary(latest.accuracy),
+          sensitivitySummary: getSensitivitySummary(latest.dPrime),
+          responseStyleSummary: getResponseStyleSummary(latest.criterionC),
         }
       : null,
     attemptsCount: participant.attempts.length,
+    batteryProgress: {
+      completed: batteryPlan?.completedSteps ?? 0,
+      total: batteryPlan?.totalSteps ?? 0,
+      href: `/itineraris/completa?codi=${participant.publicCode}`,
+    },
+    nextSteps,
   } satisfies ResultSnapshot;
 }

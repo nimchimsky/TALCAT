@@ -13,10 +13,14 @@ type Props = {
   params: Promise<{
     formCode: string;
   }>;
+  searchParams: Promise<{
+    codi?: string;
+  }>;
 };
 
-export default async function PublicFormPage({ params }: Props) {
+export default async function PublicFormPage({ params, searchParams }: Props) {
   const { formCode } = await params;
+  const { codi } = await searchParams;
   const form = await getPublicFormByCode(formCode);
 
   async function startAttempt(formData: FormData) {
@@ -25,6 +29,7 @@ export default async function PublicFormPage({ params }: Props) {
     const attemptId = await createPublicAttempt(formCode, {
       fullName: String(formData.get("fullName") ?? ""),
       email: String(formData.get("email") ?? ""),
+      participantCode: String(formData.get("participantCode") ?? ""),
     });
 
     redirect(`/proves/sessio/${attemptId}`);
@@ -53,6 +58,10 @@ export default async function PublicFormPage({ params }: Props) {
               {form.wordCount} paraules i {form.pseudowordCount} distractors.
             </p>
             <p>
+              L&apos;ordre de presentacio es aleatori en cada intent per evitar
+              estrategies.
+            </p>
+            <p>
               Temps orientatiu: {form.test.estimatedMinutes} minuts en un sol
               bloc.
             </p>
@@ -64,10 +73,18 @@ export default async function PublicFormPage({ params }: Props) {
             Inicia la sessio
           </h2>
           <p className="mt-2 text-sm leading-7 text-slate-600">
-            Pots escriure el teu nom o un alias. L&apos;email es opcional i
-            nomes serveix per identificar el resultat si l&apos;equip de recerca
-            te l&apos;ha demanat.
+            Pots escriure el teu nom o un alias. Si ja tens un codi de
+            participant, el mantindrem per poder enllacar aquesta prova amb la
+            resta de la bateria.
           </p>
+
+          {codi ? (
+            <div className="mt-4 rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              Continuaras amb el codi <strong>{codi.toUpperCase()}</strong>.
+            </div>
+          ) : null}
+
+          <input type="hidden" name="participantCode" value={codi ?? ""} />
 
           <div className="mt-6 grid gap-4">
             <label className="text-sm text-slate-600">

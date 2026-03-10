@@ -10,25 +10,25 @@ export default async function HomePage() {
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 py-6 sm:px-6 sm:py-10">
       <section className="card-surface overflow-hidden p-6 sm:p-8 lg:p-10">
-        <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
             <p className="eyebrow">TALCAT</p>
             <div className="space-y-4">
               <h1 className="font-display text-5xl leading-tight text-slate-950 sm:text-6xl">
-                Fes la prova i consulta el teu resultat
+                Tria si vols una avaluacio rapida o la bateria completa
               </h1>
               <p className="max-w-2xl text-base leading-8 text-slate-600">
-                TALCAT es una prova breu de reconeixement lexical en catala.
-                Tria la forma que t&apos;indiqui l&apos;equip de recerca, respon
-                cada item i al final rebras un codi per recuperar el resultat.
+                Pots fer una sola forma TALCAT per obtenir una lectura breu del
+                rendiment, o seguir el recorregut complet per validar els tests
+                amb el mateix codi de participant.
               </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="rounded-[24px] bg-white/75 p-5">
-                <p className="text-sm font-medium text-slate-500">Durada</p>
+                <p className="text-sm font-medium text-slate-500">Ordre</p>
                 <p className="mt-2 text-2xl font-semibold text-slate-950">
-                  8 minuts
+                  Aleatori
                 </p>
               </div>
               <div className="rounded-[24px] bg-white/75 p-5">
@@ -49,9 +49,9 @@ export default async function HomePage() {
           <div className="rounded-[32px] bg-slate-950 p-6 text-white">
             <p className="eyebrow text-amber-300">Abans de comencar</p>
             <div className="mt-5 space-y-4 text-sm leading-7 text-slate-200">
-              <p>1. Busca un espai tranquil i fes la prova d&apos;una sola tirada.</p>
-              <p>2. Decideix si cada item es una paraula valida en catala o no.</p>
-              <p>3. Guarda el codi final per tornar a consultar el resultat.</p>
+              <p>1. Busca un espai tranquil i fes cada prova d&apos;una sola tirada.</p>
+              <p>2. Les paraules i pseudoparaules surten en ordre aleatori a cada intent.</p>
+              <p>3. Guarda el teu codi final per recuperar resultats o continuar la bateria.</p>
             </div>
 
             <form
@@ -75,19 +75,45 @@ export default async function HomePage() {
                 type="submit"
                 className="mt-3 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
               >
-                Consulta el resultat
+                Consulta o continua
               </button>
             </form>
           </div>
         </div>
       </section>
 
-      <section className="mt-8">
+      <section className="mt-8 grid gap-6 lg:grid-cols-2">
+        {data.journeys.map((journey) => (
+          <article key={journey.id} className="card-surface p-6 sm:p-8">
+            <p className="eyebrow">{journey.id === "quick" ? "Mode 1" : "Mode 2"}</p>
+            <h2 className="mt-3 font-display text-3xl text-slate-950">
+              {journey.title}
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              {journey.description}
+            </p>
+            <div className="mt-5 rounded-[24px] bg-white/75 p-4 text-sm text-slate-600">
+              <p className="font-medium text-slate-950">
+                {journey.estimatedMinutes} minuts aproximadament
+              </p>
+              <p className="mt-1">{journey.note}</p>
+            </div>
+            <Link
+              href={journey.href}
+              className="mt-6 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              {journey.ctaLabel}
+            </Link>
+          </article>
+        ))}
+      </section>
+
+      <section id="versions-talcat" className="mt-8">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <p className="eyebrow">Proves disponibles</p>
+            <p className="eyebrow">Versions TALCAT</p>
             <h2 className="font-display text-3xl text-slate-950">
-              Tria la forma que has de completar
+              Si fas l&apos;avaluacio rapida, tria una sola forma
             </h2>
           </div>
         </div>
@@ -108,7 +134,7 @@ export default async function HomePage() {
                   <p className="font-medium text-slate-950">
                     {test.estimatedMinutes} minuts aproximadament
                   </p>
-                  <p>Completament online</p>
+                  <p>Fes nomes una forma si vols una lectura rapida</p>
                 </div>
               </div>
 
@@ -145,7 +171,7 @@ export default async function HomePage() {
                       href={`/proves/${form.code}`}
                       className="mt-5 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >
-                      Comenca aquesta prova
+                      Fes aquesta versio
                     </Link>
                   </div>
                 ))}
