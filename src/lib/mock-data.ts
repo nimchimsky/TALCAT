@@ -82,30 +82,18 @@ export const mockMetrics: Metric[] = [
 export const mockTests: TestSummary[] = [
   {
     id: "test-1",
-    name: "Test lexic general",
-    slug: "catala-lexic-v1",
+    name: "TALCAT Adaptive Pilot",
+    slug: "talcat-adaptive-pilot",
     status: "ACTIVE",
     estimatedMinutes: 8,
-    forms: 2,
+    forms: 6,
     attempts: 842,
-    scoreModel: "word-primary",
-    deliveryMode: "mobile-first",
+    scoreModel: "1pl",
+    deliveryMode: "adaptive-with-fixed_fallback",
     updatedAt: "2026-03-10T07:45:00.000Z",
   },
   {
     id: "test-2",
-    name: "Cribratge L2",
-    slug: "catala-l2-screening",
-    status: "ACTIVE",
-    estimatedMinutes: 10,
-    forms: 1,
-    attempts: 311,
-    scoreModel: "dual-report",
-    deliveryMode: "mobile-first",
-    updatedAt: "2026-03-09T18:20:00.000Z",
-  },
-  {
-    id: "test-3",
     name: "Validation battery",
     slug: "validation-battery-a",
     status: "DRAFT",
@@ -114,7 +102,7 @@ export const mockTests: TestSummary[] = [
     attempts: 0,
     scoreModel: "research-bundle",
     deliveryMode: "supervised",
-    updatedAt: "2026-03-08T11:00:00.000Z",
+    updatedAt: "2026-03-09T18:20:00.000Z",
   },
 ];
 
@@ -161,7 +149,7 @@ export const mockSessions: SessionSummary[] = [
   {
     id: "session-1",
     participantCode: "CAT-24032",
-    testName: "Cribratge L2",
+    testName: "TALCAT Adaptive Pilot",
     status: "LIVE",
     deviceGroup: "desktop",
     startedAt: "2026-03-10T09:19:00.000Z",
@@ -169,7 +157,7 @@ export const mockSessions: SessionSummary[] = [
   {
     id: "session-2",
     participantCode: "CAT-24031",
-    testName: "Test lexic general",
+    testName: "TALCAT Adaptive Pilot",
     status: "FINISHED",
     deviceGroup: "mobile",
     startedAt: "2026-03-10T08:03:00.000Z",
@@ -178,7 +166,7 @@ export const mockSessions: SessionSummary[] = [
   {
     id: "session-3",
     participantCode: "CAT-24035",
-    testName: "Test lexic general",
+    testName: "TALCAT Adaptive Pilot",
     status: "PENDING",
     deviceGroup: "mobile",
     startedAt: "2026-03-10T10:20:00.000Z",
@@ -189,7 +177,7 @@ export const mockAttempts: AttemptSummary[] = [
   {
     id: "attempt-1",
     participantCode: "CAT-24031",
-    testName: "Test lexic general",
+    testName: "TALCAT Adaptive Pilot",
     status: "SCORED",
     score: 612,
     dPrime: 2.11,
@@ -199,7 +187,7 @@ export const mockAttempts: AttemptSummary[] = [
   {
     id: "attempt-2",
     participantCode: "CAT-24032",
-    testName: "Cribratge L2",
+    testName: "TALCAT Adaptive Pilot",
     status: "IN_PROGRESS",
     dPrime: 1.16,
     accuracy: 0.71,
@@ -207,7 +195,7 @@ export const mockAttempts: AttemptSummary[] = [
   {
     id: "attempt-3",
     participantCode: "CAT-24034",
-    testName: "Test lexic general",
+    testName: "TALCAT Adaptive Pilot",
     status: "FLAGGED",
     score: 431,
     dPrime: 0.94,
@@ -220,7 +208,7 @@ export const mockActivity: ActivitySummary[] = [
   {
     id: "activity-1",
     action: "test.activated",
-    summary: "Activada la forma operativa del test lexic general.",
+    summary: "Activat el cataleg operatiu del pilot adaptatiu TALCAT.",
     actorEmail: "admin@example.com",
     createdAt: "2026-03-10T07:45:00.000Z",
   },

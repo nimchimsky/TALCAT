@@ -5,7 +5,7 @@ import { ItemType, PrismaClient, TestStatus } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-type CatalogRow = {
+type LegacyCatalogRow = {
   formVersion: string;
   itemOrder: number;
   section: string;
@@ -14,12 +14,51 @@ type CatalogRow = {
   spellingClean: string;
 };
 
+type PilotFormCatalog = {
+  adaptive_main?: {
+    code: string;
+    label: string;
+    delivery_mode: string;
+    description: string;
+  };
+  forms: Array<{
+    code: string;
+    label: string;
+    block_role: string;
+    delivery_mode: string;
+    target_population: string;
+    estimated_minutes: number;
+    time_limit_sec: number;
+    is_primary: boolean;
+    item_count: number;
+    word_count: number;
+    pseudoword_count: number;
+    items: Array<{
+      item_order: number;
+      section: string;
+      item_id: number;
+      spelling_raw: string | null;
+      spelling_clean: string | null;
+      block_label: string | null;
+      is_anchor: boolean;
+    }>;
+  }>;
+};
+
+type PilotCatalog = {
+  pilot_objective: string;
+  preferred_model: string;
+  preferred_model_reason: string;
+  delivery_default: string;
+  delivery_fallback: string;
+};
+
 function repairMojibake(value: string) {
   if (!value) {
     return value;
   }
 
-  if (value.includes("Ã") || value.includes("Â")) {
+  if (value.includes("Ãƒ") || value.includes("Ã‚")) {
     return Buffer.from(value, "latin1").toString("utf8");
   }
 
@@ -43,7 +82,7 @@ function parseCsv(content: string) {
         itemId,
         spellingRaw: repairMojibake(spellingRaw),
         spellingClean: repairMojibake(spellingClean),
-      } satisfies CatalogRow;
+      } satisfies LegacyCatalogRow;
     });
 }
 
@@ -66,18 +105,27 @@ function parseReleaseMetrics(markdown: string) {
 }
 
 function getDataPaths() {
-  const dataDir =
-    process.env.TALCAT_DATA_DIR ??
-    path.resolve(process.cwd(), "..", "data", "forms");
-  const reportPath =
-    process.env.TALCAT_RELEASE_SUMMARY_PATH ??
-    path.resolve(process.cwd(), "..", "reports", "release_v1_summary.md");
+  const rootDir = path.resolve(process.cwd(), "..");
+  const formsDir = process.env.TALCAT_DATA_DIR ?? path.resolve(rootDir, "data", "forms");
+  const reportsDir = path.resolve(rootDir, "reports");
+  const pilotDir = path.resolve(rootDir, "data", "pilot");
 
   return {
-    v1Path: path.join(dataDir, "short_form_v1_items.csv"),
-    v2Path: path.join(dataDir, "short_form_v2_items.csv"),
-    reportPath,
+    v1Path: path.join(formsDir, "short_form_v1_items.csv"),
+    v2Path: path.join(formsDir, "short_form_v2_items.csv"),
+    reportPath: process.env.TALCAT_RELEASE_SUMMARY_PATH ?? path.join(reportsDir, "release_v1_summary.md"),
+    pilotCatalogPath: path.join(pilotDir, "pilot_catalog.json"),
+    pilotFormCatalogPath: path.join(pilotDir, "pilot_form_catalog.json"),
   };
+}
+
+async function readJsonIfExists<T>(filePath: string) {
+  try {
+    const content = await readFile(filePath, "utf8");
+    return JSON.parse(content) as T;
+  } catch {
+    return null;
+  }
 }
 
 async function ensureOrganization() {
@@ -125,34 +173,149 @@ async function clearOperationalCatalog() {
   await prisma.auditLog.deleteMany();
 }
 
-async function main() {
-  const { v1Path, v2Path, reportPath } = getDataPaths();
-  const [v1Csv, v2Csv, releaseSummary] = await Promise.all([
-    readFile(v1Path, "utf8"),
-    readFile(v2Path, "utf8"),
-    readFile(reportPath, "utf8"),
-  ]);
+function getPilotTestDescription(pilotCatalog: PilotCatalog) {
+  return `Pilot operatiu TALCAT amb mode adaptatiu previst, blocs d'ancoratge i fallback fix. Model preferit actual: ${pilotCatalog.preferred_model}.`;
+}
 
+function getLegacyTestDescription() {
+  return "Cataleg operatiu provisional importat des de short_form_v1_items.csv i short_form_v2_items.csv.";
+}
+
+async function upsertItem(
+  itemCache: Map<string, { id: string }>,
+  itemId: string | number,
+  section: string,
+  spellingRaw: string | null,
+  spellingClean: string | null,
+) {
+  const stableKey = `talcat-${itemId}`;
+  let item = itemCache.get(stableKey);
+
+  if (!item) {
+    item = await prisma.itemBankEntry.create({
+      data: {
+        stableKey,
+        prompt: spellingClean || spellingRaw || stableKey,
+        itemType: section === "pseudoword" ? ItemType.PSEUDOWORD : ItemType.WORD,
+      },
+      select: { id: true },
+    });
+
+    itemCache.set(stableKey, item);
+  }
+
+  return item;
+}
+
+async function importPilotCatalog(
+  organizationId: string,
+  pilotCatalog: PilotCatalog,
+  formCatalog: PilotFormCatalog,
+) {
+  const test = await prisma.test.create({
+    data: {
+      organizationId,
+      slug: "talcat-adaptive-pilot",
+      name: "TALCAT Adaptive Pilot",
+      description: getPilotTestDescription(pilotCatalog),
+      status: TestStatus.ACTIVE,
+      deliveryMode: `${pilotCatalog.delivery_default}-with-${pilotCatalog.delivery_fallback}`,
+      scoreModel: pilotCatalog.preferred_model,
+      estimatedMinutes: 8,
+    },
+  });
+
+  const itemCache = new Map<string, { id: string }>();
+
+  for (const formEntry of formCatalog.forms) {
+    const form = await prisma.form.create({
+      data: {
+        testId: test.id,
+        code: formEntry.code,
+        version: 1,
+        label: formEntry.label,
+        isPrimary: formEntry.is_primary,
+        itemCount: formEntry.item_count,
+        wordCount: formEntry.word_count,
+        pseudowordCount: formEntry.pseudoword_count,
+        timeLimitSec: formEntry.time_limit_sec,
+      },
+    });
+
+    for (const itemEntry of [...formEntry.items].sort(
+      (left, right) => left.item_order - right.item_order,
+    )) {
+      const item = await upsertItem(
+        itemCache,
+        itemEntry.item_id,
+        itemEntry.section,
+        itemEntry.spelling_raw,
+        itemEntry.spelling_clean,
+      );
+
+      await prisma.formItem.create({
+        data: {
+          formId: form.id,
+          itemId: item.id,
+          position: itemEntry.item_order,
+          blockLabel: itemEntry.block_label ?? formEntry.block_role,
+          isAnchor: itemEntry.is_anchor,
+        },
+      });
+    }
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      organizationId,
+      actorEmail: "rogerbn@hotmail.com",
+      action: "catalog.imported",
+      entityType: "Test",
+      entityId: test.id,
+      summary:
+        "Importat el paquet de pilot adaptatiu TALCAT amb blocs d'ancoratge i fallback fix.",
+      metadata: {
+        pilotObjective: pilotCatalog.pilot_objective,
+        adaptiveMain: formCatalog.adaptive_main ?? null,
+        forms: formCatalog.forms.map((entry) => ({
+          code: entry.code,
+          blockRole: entry.block_role,
+          deliveryMode: entry.delivery_mode,
+          itemCount: entry.item_count,
+        })),
+      },
+    },
+  });
+
+  console.log(
+    JSON.stringify(
+      {
+        test: test.name,
+        importedMode: "pilot_package",
+        forms: formCatalog.forms.map((entry) => entry.code),
+        uniqueItems: itemCache.size,
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+async function importLegacyCatalog(
+  organizationId: string,
+  v1Csv: string,
+  v2Csv: string,
+  releaseSummary: string,
+) {
   const rows = [...parseCsv(v1Csv), ...parseCsv(v2Csv)];
   const { metrics, sizes } = parseReleaseMetrics(releaseSummary);
-  const organization = await ensureOrganization();
-
-  await clearOperationalCatalog();
-
-  const groupedForms = new Map<string, CatalogRow[]>();
-  for (const row of rows) {
-    const bucket = groupedForms.get(row.formVersion) ?? [];
-    bucket.push(row);
-    groupedForms.set(row.formVersion, bucket);
-  }
 
   const test = await prisma.test.create({
     data: {
-      organizationId: organization.id,
+      organizationId,
       slug: "talcat-release-v1",
       name: "TALCAT Release V1",
-      description:
-        "Cataleg operatiu importat des de short_form_v1_items.csv i short_form_v2_items.csv.",
+      description: getLegacyTestDescription(),
       status: TestStatus.ACTIVE,
       deliveryMode: "mobile-first",
       scoreModel: "word-primary",
@@ -161,13 +324,18 @@ async function main() {
   });
 
   const itemCache = new Map<string, { id: string }>();
+  const groupedForms = new Map<string, LegacyCatalogRow[]>();
+
+  for (const row of rows) {
+    const bucket = groupedForms.get(row.formVersion) ?? [];
+    bucket.push(row);
+    groupedForms.set(row.formVersion, bucket);
+  }
 
   for (const [formVersion, formRows] of [...groupedForms.entries()].sort()) {
     const versionNumber = Number(formVersion.replace(/[^\d]/g, "")) || 1;
     const wordCount = formRows.filter((row) => row.section === "word").length;
-    const pseudowordCount = formRows.filter(
-      (row) => row.section === "pseudoword",
-    ).length;
+    const pseudowordCount = formRows.filter((row) => row.section === "pseudoword").length;
 
     const form = await prisma.form.create({
       data: {
@@ -184,22 +352,13 @@ async function main() {
     });
 
     for (const row of formRows.sort((a, b) => a.itemOrder - b.itemOrder)) {
-      const stableKey = `talcat-${row.itemId}`;
-      let item = itemCache.get(stableKey);
-
-      if (!item) {
-        item = await prisma.itemBankEntry.create({
-          data: {
-            stableKey,
-            prompt: row.spellingClean || row.spellingRaw,
-            itemType:
-              row.section === "pseudoword" ? ItemType.PSEUDOWORD : ItemType.WORD,
-          },
-          select: { id: true },
-        });
-
-        itemCache.set(stableKey, item);
-      }
+      const item = await upsertItem(
+        itemCache,
+        row.itemId,
+        row.section,
+        row.spellingRaw,
+        row.spellingClean,
+      );
 
       await prisma.formItem.create({
         data: {
@@ -214,13 +373,13 @@ async function main() {
 
   await prisma.auditLog.create({
     data: {
-      organizationId: organization.id,
+      organizationId,
       actorEmail: "rogerbn@hotmail.com",
       action: "catalog.imported",
       entityType: "Test",
       entityId: test.id,
       summary:
-        "Importat el cataleg TALCAT Release V1 amb les formes reals v1 i v2.",
+        "Importat el cataleg TALCAT provisional amb les formes fixes v1 i v2.",
       metadata: {
         forms: [...groupedForms.keys()],
         totalItems: rows.length,
@@ -234,6 +393,7 @@ async function main() {
     JSON.stringify(
       {
         test: test.name,
+        importedMode: "legacy_forms",
         forms: [...groupedForms.keys()],
         totalRows: rows.length,
         uniqueItems: itemCache.size,
@@ -242,6 +402,34 @@ async function main() {
       2,
     ),
   );
+}
+
+async function main() {
+  const {
+    v1Path,
+    v2Path,
+    reportPath,
+    pilotCatalogPath,
+    pilotFormCatalogPath,
+  } = getDataPaths();
+  const organization = await ensureOrganization();
+
+  await clearOperationalCatalog();
+
+  const pilotCatalog = await readJsonIfExists<PilotCatalog>(pilotCatalogPath);
+  const pilotFormCatalog = await readJsonIfExists<PilotFormCatalog>(pilotFormCatalogPath);
+
+  if (pilotCatalog && pilotFormCatalog) {
+    await importPilotCatalog(organization.id, pilotCatalog, pilotFormCatalog);
+    return;
+  }
+
+  const [v1Csv, v2Csv, releaseSummary] = await Promise.all([
+    readFile(v1Path, "utf8"),
+    readFile(v2Path, "utf8"),
+    readFile(reportPath, "utf8"),
+  ]);
+  await importLegacyCatalog(organization.id, v1Csv, v2Csv, releaseSummary);
 }
 
 main()

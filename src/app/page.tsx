@@ -15,12 +15,12 @@ export default async function HomePage() {
             <p className="eyebrow">TALCAT</p>
             <div className="space-y-4">
               <h1 className="font-display text-5xl leading-tight text-slate-950 sm:text-6xl">
-                Tria si vols una avaluacio rapida o la bateria completa
+                Tria una administracio TALCAT o la bateria completa
               </h1>
               <p className="max-w-2xl text-base leading-8 text-slate-600">
-                Pots fer una sola forma TALCAT per obtenir una lectura breu del
-                rendiment, o seguir el recorregut complet per validar els tests
-                amb el mateix codi de participant.
+                Pots fer una sola administracio TALCAT per obtenir una lectura
+                breu del rendiment, o seguir el recorregut complet per validar
+                els tests amb el mateix codi de participant.
               </p>
             </div>
 
@@ -111,9 +111,9 @@ export default async function HomePage() {
       <section id="versions-talcat" className="mt-8">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <p className="eyebrow">Versions TALCAT</p>
+            <p className="eyebrow">Administracions TALCAT</p>
             <h2 className="font-display text-3xl text-slate-950">
-              Si fas l&apos;avaluacio rapida, tria una sola forma
+              Si fas l&apos;avaluacio rapida, tria una sola administracio
             </h2>
           </div>
         </div>
@@ -134,7 +134,7 @@ export default async function HomePage() {
                   <p className="font-medium text-slate-950">
                     {test.estimatedMinutes} minuts aproximadament
                   </p>
-                  <p>Fes nomes una forma si vols una lectura rapida</p>
+                  <p>Fes nomes una administracio si vols una lectura rapida</p>
                 </div>
               </div>
 
@@ -171,7 +171,7 @@ export default async function HomePage() {
                       href={`/proves/${form.code}`}
                       className="mt-5 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >
-                      Fes aquesta versio
+                      Fes aquesta administracio
                     </Link>
                   </div>
                 ))}

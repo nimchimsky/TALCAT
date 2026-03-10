@@ -1,16 +1,21 @@
-# Arquitectura de la webapp
+# Arquitectura De La Webapp
 
 ## Objectiu
 
-La webapp administra tot el cicle de les proves online:
+La webapp administra tot el cicle operatiu de TALCAT:
 
-* cataleg de proves i versions
+* cataleg de proves i modes de lliurament
 * invitacions i cohorts
 * sessions en curs
 * resultats, alertes i traça operativa
 * desplegament a Railway amb PostgreSQL
 
-## Stack proposat
+La direccio funcional ara es:
+
+* un TALCAT adaptatiu com a producte principal
+* formes fixes nomès com a fallback, pilot i QA
+
+## Stack Proposat
 
 * `Next.js 16` amb App Router
 * `TypeScript`
@@ -18,11 +23,11 @@ La webapp administra tot el cicle de les proves online:
 * `PostgreSQL` a Railway
 * `GitHub Actions` per lint i build
 
-## Mòduls funcionals
+## Moduls Funcionals
 
-### 1. Admin shell
+### 1. Admin Shell
 
-Interfície per equips interns:
+Interficie per equips interns:
 
 * dashboard operatiu
 * pantalla de proves
@@ -31,7 +36,7 @@ Interfície per equips interns:
 * vista de resultats
 * checklist de deploy
 
-### 2. Model de dades
+### 2. Model De Dades
 
 Entitats clau:
 
@@ -47,15 +52,26 @@ Entitats clau:
 * `Response`
 * `AuditLog`
 
-### 3. Persistència
+El model actual ja permet administracions fixes.
+
+La seguent evolucio ha d'afegir camps o entitats per:
+
+* sessio adaptativa
+* estimacio de `theta`
+* `SEM` condicional
+* trajectoria d'items administrats
+* motiu d'aturada
+* mode `adaptive` versus `fixed_fallback`
+
+### 3. Persistencia
 
 `Prisma` encapsula el model i deixa el projecte preparat per:
 
 * migracions
 * seeds inicials
-* connexió directa amb Railway Postgres
+* connexio directa amb Railway Postgres
 
-### 4. Operació i desplegament
+### 4. Operacio I Desplegament
 
 Flux previst:
 
@@ -65,22 +81,23 @@ Flux previst:
 4. servei PostgreSQL gestionat per Railway
 5. variables d'entorn injectades a Railway
 
-## Evolució recomanada
+## Evolucio Recomanada
 
 ### Fase 1
 
-* connectar autenticació d'admins
+* connectar autenticacio d'admins
 * crear CRUD real de proves i formularis
-* importar bancs d'items des de `7 Test 2026/data/forms`
+* mantenir importacio del paquet de pilot adaptatiu i dels fallback fixos provisionals
 
 ### Fase 2
 
-* public test runner per a participants
-* assignació amb enllaços segurs
-* scoring automàtic i exportacions
+* afegir motor de sessio adaptativa
+* guardar `theta`, `SEM`, longitud i motiu d'aturada
+* conservar runner fix com a fallback
 
 ### Fase 3
 
-* dashboards analítics connectats al pipeline psicomètric
+* dashboards analitics connectats al pipeline psicometric
 * alertes de qualitat
-* versionat de formes i equivalències
+* monitoratge d'exposicio d'items
+* integracio de la bateria externa i de la validacio prospectiva

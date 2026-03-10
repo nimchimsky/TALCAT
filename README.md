@@ -1,13 +1,29 @@
 # TALCAT
 
-Backoffice inicial per administrar proves online de vocabulari i bateries relacionades.
+Backoffice inicial per administrar TALCAT online i la bateria externa de validacio.
 
-Inclou:
+La direccio del projecte ara es `CAT-first`.
+
+La web actual encara suporta formes fixes de pilot i fallback, pero l'objectiu final es administrar un unnic TALCAT adaptatiu amb una sola escala compartida.
+
+## Què Inclou Ara
 
 * UI d'admin amb dashboard, proves, participants, sessions, resultats i deploy
 * `Prisma` amb esquema per proves, formes, intents, respostes i auditoria
+* runner public per a administracions fixes provisionals
 * preparacio per `Railway + PostgreSQL`
 * workflow de `GitHub Actions` per lint i build
+
+## Com S'Ha D'Interpretar
+
+Els actius `V1` i `V2` no s'han d'entendre com el producte final.
+
+Ara mateix serveixen per:
+
+* QA de la plataforma;
+* pilots inicials;
+* administracio de fallback;
+* blocs d'ancoratge mentre es construeix el motor adaptatiu.
 
 ## Stack
 
@@ -17,7 +33,7 @@ Inclou:
 * `Prisma ORM`
 * `PostgreSQL`
 
-## Arrencada local
+## Arrencada Local
 
 1. Instal.la dependencies:
 
@@ -60,10 +76,9 @@ npm run db:seed
 npm run catalog:sync
 ```
 
-`npm run catalog:sync` importa les formes reals `short_form_v1_items.csv` i
-`short_form_v2_items.csv` des del workspace `7 Test 2026`.
+`npm run catalog:sync` prioritza el paquet de pilot adaptatiu (`pilot_catalog.json` i `pilot_form_catalog.json`) i, si no existeix, fa fallback a `short_form_v1_items.csv` i `short_form_v2_items.csv`.
 
-## Deploy a Railway
+## Deploy A Railway
 
 1. Crea un repositori a GitHub i puja aquesta carpeta.
 2. A Railway, crea un projecte nou i connecta el repo.
@@ -94,7 +109,7 @@ Ja hi ha workflow a `.github/workflows/ci.yml` que valida:
 * `eslint`
 * `next build`
 
-## Estructura principal
+## Estructura Principal
 
 * `src/app` rutes i pantalles
 * `src/components` components UI
@@ -103,9 +118,10 @@ Ja hi ha workflow a `.github/workflows/ci.yml` que valida:
 * `prisma/seed.ts` dades inicials
 * `docs/architecture.md` decisions d'arquitectura
 
-## Seguents passos recomanats
+## Seguents Passos Recomanats
 
 * afegir autenticacio d'admins
-* crear CRUD real per proves i formes
-* construir el runner public per als participants
-* connectar importacio dels bancs d'items des de `7 Test 2026/data/forms`
+* mantenir el runner fix com a fallback i QA
+* afegir API i model de dades per al motor adaptatiu
+* registrar `theta`, `SEM`, longitud i trajectoria adaptativa
+* connectar la bateria externa de validacio dins del mateix flux

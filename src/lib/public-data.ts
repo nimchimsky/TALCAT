@@ -138,45 +138,60 @@ export type ResultSnapshot = {
 };
 
 const PUBLIC_TEST_SUMMARY =
-  "Prova breu de decisio lexical en catala per identificar paraules i no paraules.";
+  "Administracio TALCAT de decisio lexical en catala per identificar paraules i no paraules.";
 
 function buildPublicTestDescription(
   estimatedMinutes: number,
   formsCount: number,
 ) {
   const formsLabel =
-    formsCount === 1 ? "1 forma disponible" : `${formsCount} formes disponibles`;
+    formsCount === 1
+      ? "1 administracio disponible"
+      : `${formsCount} administracions disponibles`;
   return `${PUBLIC_TEST_SUMMARY} Durada aproximada de ${estimatedMinutes} minuts i ${formsLabel}.`;
+}
+
+function buildPublicFormDescription(form: CatalogForm) {
+  const code = form.code.toLowerCase();
+  if (code.startsWith("anchor_")) {
+    return "Bloc d'ancoratge pilot assignat per protocol per a enllac, control i QA.";
+  }
+
+  if (code.startsWith("fallback_")) {
+    return "Administracio fixa de fallback per quan no es fa servir el motor adaptatiu.";
+  }
+
+  return `${form.wordCount} paraules i ${form.pseudowordCount} distractors.`;
 }
 
 const fallbackHomeData: PublicHomeData = {
   tests: [
     {
       id: "fallback-talcat",
-      name: "TALCAT Release V1",
+      name: "TALCAT Pilot",
       description:
-        "Prova breu de decisio lexical en catala amb dues formes equivalents.",
+        "Pilot TALCAT amb administracions fixes de fallback mentre es prepara el motor adaptatiu.",
       estimatedMinutes: 8,
       forms: [
         {
-          code: "TALCAT-V1",
-          label: "Forma V1",
-          testName: "TALCAT Release V1",
-          description: "Versio principal de la prova curta.",
+          code: "fallback_v1",
+          label: "Fallback V1",
+          testName: "TALCAT Pilot",
+          description: "Administracio fixa de fallback.",
           estimatedMinutes: 8,
           itemCount: 60,
-          wordCount: 50,
-          pseudowordCount: 10,
+          wordCount: 42,
+          pseudowordCount: 18,
         },
         {
-          code: "TALCAT-V2",
-          label: "Forma V2",
-          testName: "TALCAT Release V1",
-          description: "Forma paral.lela per seguiment o retest.",
+          code: "fallback_v2",
+          label: "Fallback V2",
+          testName: "TALCAT Pilot",
+          description: "Segona administracio fixa de fallback.",
           estimatedMinutes: 8,
           itemCount: 60,
-          wordCount: 50,
-          pseudowordCount: 10,
+          wordCount: 42,
+          pseudowordCount: 18,
         },
       ],
     },
@@ -185,18 +200,18 @@ const fallbackHomeData: PublicHomeData = {
     {
       id: "quick",
       title: "Avaluacio rapida",
-      description: "Completa una sola forma TALCAT per obtenir una lectura breu del rendiment.",
-      note: "Pots triar la versio que t'indiqui l'equip de recerca.",
+      description: "Completa una sola administracio TALCAT per obtenir una lectura breu del rendiment.",
+      note: "Segueix l'administracio que t'indiqui l'equip de recerca.",
       estimatedMinutes: 8,
-      ctaLabel: "Tria una versio",
+      ctaLabel: "Veu les administracions",
       href: "#versions-talcat",
     },
     {
       id: "full",
       title: "Bateria completa",
       description: "Segueix el recorregut complet i afegeix, quan estiguin actives, les proves de validacio.",
-      note: "Ara mateix inclou les dues formes TALCAT disponibles.",
-      estimatedMinutes: 16,
+      note: "Ara mateix inclou una administracio TALCAT assignada per protocol i, quan pertoqui, proves addicionals de validacio.",
+      estimatedMinutes: 8,
       ctaLabel: "Comenca la bateria",
       href: "/itineraris/completa",
     },
@@ -235,19 +250,55 @@ function getPrimaryForm(test: CatalogTest) {
   })[0] ?? null;
 }
 
+function isAnchorForm(form: { code: string }) {
+  return form.code.toLowerCase().startsWith("anchor_");
+}
+
+function getOperationalTalcatForm(test: CatalogTest) {
+  const sortedForms = [...test.forms].sort((left, right) => {
+    if (left.isPrimary !== right.isPrimary) {
+      return left.isPrimary ? -1 : 1;
+    }
+
+    return left.version - right.version;
+  });
+
+  return (
+    sortedForms.find((form) => !isAnchorForm(form) && form.isPrimary) ??
+    sortedForms.find((form) => !isAnchorForm(form)) ??
+    sortedForms[0] ??
+    null
+  );
+}
+
 function buildBatterySteps(tests: CatalogTest[]) {
   const talcatSteps = tests
     .filter(isTalcatTest)
-    .flatMap((test) =>
-      [...test.forms]
-        .sort((left, right) => left.version - right.version)
-        .map((form) => ({
-          formCode: form.code,
-          label: form.label,
-          testName: test.name,
-          estimatedMinutes: test.estimatedMinutes,
-          kind: "talcat" as const,
-        })),
+    .map((test) => {
+      const form = getOperationalTalcatForm(test);
+
+      if (!form) {
+        return null;
+      }
+
+      return {
+        formCode: form.code,
+        label: form.label,
+        testName: test.name,
+        estimatedMinutes: test.estimatedMinutes,
+        kind: "talcat" as const,
+      };
+    })
+    .filter(
+      (
+        entry,
+      ): entry is {
+        formCode: string;
+        label: string;
+        testName: string;
+        estimatedMinutes: number;
+        kind: "talcat";
+      } => Boolean(entry),
     );
   const validationSteps = tests
     .filter((test) => !isTalcatTest(test))
@@ -373,6 +424,9 @@ function buildJourneys(tests: CatalogTest[]): PublicJourneySummary[] {
   const talcatTests = tests.filter(isTalcatTest);
   const talcatForms = talcatTests.flatMap((test) => test.forms);
   const batterySteps = buildBatterySteps(tests);
+  const talcatBatteryCount = batterySteps.filter(
+    (entry) => entry.kind === "talcat",
+  ).length;
   const fullMinutes = batterySteps.reduce(
     (total, entry) => total + entry.estimatedMinutes,
     0,
@@ -386,13 +440,13 @@ function buildJourneys(tests: CatalogTest[]): PublicJourneySummary[] {
       id: "quick",
       title: "Avaluacio rapida",
       description:
-        "Completa una sola forma TALCAT per obtenir una lectura breu i immediata.",
+        "Completa una sola administracio TALCAT per obtenir una lectura breu i immediata.",
       note:
         talcatForms.length > 1
-          ? "Pots triar la versio indicada per l'equip de recerca."
-          : "La forma principal et dona una estimacio rapida del rendiment actual.",
+          ? "L'administracio concreta depen del protocol del pilot i del teu codi de participant."
+          : "L'administracio principal et dona una estimacio rapida del rendiment actual.",
       estimatedMinutes: talcatTests[0]?.estimatedMinutes ?? tests[0]?.estimatedMinutes ?? 8,
-      ctaLabel: "Tria una versio",
+      ctaLabel: "Veu les administracions",
       href: "#versions-talcat",
     },
     {
@@ -402,8 +456,8 @@ function buildJourneys(tests: CatalogTest[]): PublicJourneySummary[] {
         "Segueix el recorregut complet del participant i afegeix les proves de validacio actives.",
       note:
         validationCount > 0
-          ? `Ara mateix inclou ${talcatForms.length} forma${talcatForms.length === 1 ? "" : "es"} TALCAT i ${validationCount} prova${validationCount === 1 ? "" : "es"} de validacio.`
-          : `Ara mateix inclou les ${talcatForms.length} formes TALCAT actives; quan s'activin mes proves s'afegiran automaticament.`,
+          ? `Ara mateix inclou ${talcatBatteryCount} administracio${talcatBatteryCount === 1 ? "" : "ns"} TALCAT assignada${talcatBatteryCount === 1 ? "" : "es"} per protocol i ${validationCount} prova${validationCount === 1 ? "" : "es"} de validacio.`
+          : `Ara mateix inclou ${talcatBatteryCount} administracio${talcatBatteryCount === 1 ? "" : "ns"} TALCAT assignada${talcatBatteryCount === 1 ? "" : "es"} per protocol; quan s'activin mes proves s'afegiran automaticament.`,
       estimatedMinutes: fullMinutes || talcatTests[0]?.estimatedMinutes || 8,
       ctaLabel: "Comenca la bateria",
       href: "/itineraris/completa",
@@ -526,7 +580,7 @@ function mapCatalogToPublicTests(tests: CatalogTest[]): PublicTestSummary[] {
       code: form.code,
       label: form.label,
       testName: test.name,
-      description: `${form.wordCount} paraules i ${form.pseudowordCount} distractors.`,
+      description: buildPublicFormDescription(form),
       estimatedMinutes: test.estimatedMinutes,
       itemCount: form.itemCount,
       wordCount: form.wordCount,
@@ -834,24 +888,17 @@ export async function getFullBatteryPlan(
       title: "Bateria completa",
       description:
         "Segueix el recorregut complet del participant i incorpora les proves de validacio quan estiguin disponibles.",
-      note: "Ara mateix la bateria recorre les dues formes TALCAT disponibles.",
-      estimatedMinutes: 16,
-      totalSteps: 2,
+      note: "Ara mateix la bateria inclou una administracio TALCAT assignada per protocol.",
+      estimatedMinutes: 8,
+      totalSteps: 1,
       completedSteps: participantCode ? 0 : 0,
       participantCode: participantCode ?? null,
-      nextFormCode: "TALCAT-V1",
+      nextFormCode: "fallback_v1",
       steps: [
         {
-          formCode: "TALCAT-V1",
-          label: "Forma V1",
-          testName: "TALCAT Release V1",
-          estimatedMinutes: 8,
-          completed: false,
-        },
-        {
-          formCode: "TALCAT-V2",
-          label: "Forma V2",
-          testName: "TALCAT Release V1",
+          formCode: "fallback_v1",
+          label: "Fallback V1",
+          testName: "TALCAT Pilot",
           estimatedMinutes: 8,
           completed: false,
         },
@@ -904,8 +951,8 @@ export async function getFullBatteryPlan(
       "Recorregut pensat per al participant que ha de fer TALCAT i, quan pertoqui, les proves addicionals de validacio.",
     note:
       validationCount > 0
-        ? `La bateria actual inclou ${talcatCount} forma${talcatCount === 1 ? "" : "es"} TALCAT i ${validationCount} prova${validationCount === 1 ? "" : "es"} addicional${validationCount === 1 ? "" : "s"} de validacio.`
-        : `Ara mateix la bateria recorre les ${talcatCount} formes TALCAT actives; quan s'afegeixin mes proves apareixeran aqui sense canviar el flux.`,
+        ? `La bateria actual inclou ${talcatCount} administracio${talcatCount === 1 ? "" : "ns"} TALCAT assignada${talcatCount === 1 ? "" : "es"} per protocol i ${validationCount} prova${validationCount === 1 ? "" : "es"} addicional${validationCount === 1 ? "" : "s"} de validacio.`
+        : `Ara mateix la bateria inclou ${talcatCount} administracio${talcatCount === 1 ? "" : "ns"} TALCAT assignada${talcatCount === 1 ? "" : "es"} per protocol; quan s'afegeixin mes proves apareixeran aqui sense canviar el flux.`,
     estimatedMinutes: batterySteps.reduce(
       (total, entry) => total + entry.estimatedMinutes,
       0,

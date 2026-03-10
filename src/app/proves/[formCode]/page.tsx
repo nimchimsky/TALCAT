@@ -58,6 +58,10 @@ export default async function PublicFormPage({ params, searchParams }: Props) {
               {form.wordCount} paraules i {form.pseudowordCount} distractors.
             </p>
             <p>
+              Aquesta administracio pot correspondre a un bloc pilot
+              d&apos;ancoratge o a un bloc fix de fallback.
+            </p>
+            <p>
               L&apos;ordre de presentacio es aleatori en cada intent per evitar
               estrategies.
             </p>
