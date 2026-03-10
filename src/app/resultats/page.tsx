@@ -165,12 +165,26 @@ export default async function ResultsLookupPage({ searchParams }: Props) {
                       {snapshot.batteryProgress.completed} de{" "}
                       {snapshot.batteryProgress.total} proves completades
                     </h3>
+                    {snapshot.batteryProgress.nextLabel ? (
+                      <p className="mt-2 text-sm leading-6 text-slate-200">
+                        Seguent prova: {snapshot.batteryProgress.nextLabel}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-sm leading-6 text-slate-200">
+                        No queden proves pendents dins del recorregut complet.
+                      </p>
+                    )}
                   </div>
                   <Link
-                    href={snapshot.batteryProgress.href}
+                    href={
+                      snapshot.batteryProgress.nextHref ??
+                      snapshot.batteryProgress.href
+                    }
                     className="inline-flex rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
                   >
-                    Obre la bateria
+                    {snapshot.batteryProgress.nextHref
+                      ? "Passa a la seguent prova"
+                      : "Obre la bateria"}
                   </Link>
                 </div>
               </div>

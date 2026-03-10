@@ -126,6 +126,8 @@ export type ResultSnapshot = {
     completed: number;
     total: number;
     href: string;
+    nextHref: string | null;
+    nextLabel: string | null;
   };
   nextSteps: Array<{
     title: string;
@@ -193,8 +195,8 @@ const fallbackHomeData: PublicHomeData = {
       id: "full",
       title: "Bateria completa",
       description: "Segueix el recorregut complet i afegeix, quan estiguin actives, les proves de validacio.",
-      note: "Ara mateix la bateria coincideix amb el TALCAT principal.",
-      estimatedMinutes: 8,
+      note: "Ara mateix inclou les dues formes TALCAT disponibles.",
+      estimatedMinutes: 16,
       ctaLabel: "Comenca la bateria",
       href: "/itineraris/completa",
     },
@@ -231,6 +233,45 @@ function getPrimaryForm(test: CatalogTest) {
 
     return left.version - right.version;
   })[0] ?? null;
+}
+
+function buildBatterySteps(tests: CatalogTest[]) {
+  const talcatSteps = tests
+    .filter(isTalcatTest)
+    .flatMap((test) =>
+      [...test.forms]
+        .sort((left, right) => left.version - right.version)
+        .map((form) => ({
+          formCode: form.code,
+          label: form.label,
+          testName: test.name,
+          estimatedMinutes: test.estimatedMinutes,
+          kind: "talcat" as const,
+        })),
+    );
+  const validationSteps = tests
+    .filter((test) => !isTalcatTest(test))
+    .map((test) => ({
+      test,
+      form: getPrimaryForm(test),
+    }))
+    .filter(
+      (
+        entry,
+      ): entry is {
+        test: CatalogTest;
+        form: CatalogForm;
+      } => Boolean(entry.form),
+    )
+    .map((entry) => ({
+      formCode: entry.form.code,
+      label: entry.form.label,
+      testName: entry.test.name,
+      estimatedMinutes: entry.test.estimatedMinutes,
+      kind: "validation" as const,
+    }));
+
+  return [...talcatSteps, ...validationSteps];
 }
 
 function getHashKey(seed: string, value: string) {
@@ -275,7 +316,7 @@ function getAccuracySummary(accuracy: number | null) {
     return "El rendiment es intermedi i encara hi ha marge de consolidacio.";
   }
 
-  return "La prova indica que encara hi ha força marge per consolidar la distincio lexical.";
+  return "La prova indica que encara hi ha forca marge per consolidar la distincio lexical.";
 }
 
 function getSensitivitySummary(dPrime: number | null) {
@@ -331,26 +372,13 @@ function getAverageRtMs(
 function buildJourneys(tests: CatalogTest[]): PublicJourneySummary[] {
   const talcatTests = tests.filter(isTalcatTest);
   const talcatForms = talcatTests.flatMap((test) => test.forms);
-  const primaryForms = tests
-    .map((test) => ({
-      test,
-      form: getPrimaryForm(test),
-    }))
-    .filter(
-      (
-        entry,
-      ): entry is {
-        test: CatalogTest;
-        form: CatalogForm;
-      } => Boolean(entry.form),
-    );
-
-  const fullMinutes = primaryForms.reduce(
-    (total, entry) => total + entry.test.estimatedMinutes,
+  const batterySteps = buildBatterySteps(tests);
+  const fullMinutes = batterySteps.reduce(
+    (total, entry) => total + entry.estimatedMinutes,
     0,
   );
-  const validationCount = primaryForms.filter(
-    (entry) => !isTalcatTest(entry.test),
+  const validationCount = batterySteps.filter(
+    (entry) => entry.kind === "validation",
   ).length;
 
   return [
@@ -374,8 +402,8 @@ function buildJourneys(tests: CatalogTest[]): PublicJourneySummary[] {
         "Segueix el recorregut complet del participant i afegeix les proves de validacio actives.",
       note:
         validationCount > 0
-          ? `Ara mateix inclou TALCAT i ${validationCount} prova${validationCount === 1 ? "" : "es"} de validacio.`
-          : "Ara mateix la bateria completa coincideix amb el TALCAT principal; quan s'activin mes proves s'afegiran automaticament.",
+          ? `Ara mateix inclou ${talcatForms.length} forma${talcatForms.length === 1 ? "" : "es"} TALCAT i ${validationCount} prova${validationCount === 1 ? "" : "es"} de validacio.`
+          : `Ara mateix inclou les ${talcatForms.length} formes TALCAT actives; quan s'activin mes proves s'afegiran automaticament.`,
       estimatedMinutes: fullMinutes || talcatTests[0]?.estimatedMinutes || 8,
       ctaLabel: "Comenca la bateria",
       href: "/itineraris/completa",
@@ -806,9 +834,9 @@ export async function getFullBatteryPlan(
       title: "Bateria completa",
       description:
         "Segueix el recorregut complet del participant i incorpora les proves de validacio quan estiguin disponibles.",
-      note: "Ara mateix la bateria coincideix amb el TALCAT principal.",
-      estimatedMinutes: 8,
-      totalSteps: 1,
+      note: "Ara mateix la bateria recorre les dues formes TALCAT disponibles.",
+      estimatedMinutes: 16,
+      totalSteps: 2,
       completedSteps: participantCode ? 0 : 0,
       participantCode: participantCode ?? null,
       nextFormCode: "TALCAT-V1",
@@ -820,26 +848,21 @@ export async function getFullBatteryPlan(
           estimatedMinutes: 8,
           completed: false,
         },
+        {
+          formCode: "TALCAT-V2",
+          label: "Forma V2",
+          testName: "TALCAT Release V1",
+          estimatedMinutes: 8,
+          completed: false,
+        },
       ],
     };
   }
 
   const tests = await getActiveCatalog();
-  const primarySteps = tests
-    .map((test) => ({
-      test,
-      form: getPrimaryForm(test),
-    }))
-    .filter(
-      (
-        entry,
-      ): entry is {
-        test: CatalogTest;
-        form: CatalogForm;
-      } => Boolean(entry.form),
-    );
+  const batterySteps = buildBatterySteps(tests);
 
-  if (primarySteps.length === 0) {
+  if (batterySteps.length === 0) {
     return null;
   }
 
@@ -861,17 +884,18 @@ export async function getFullBatteryPlan(
       .filter((attempt) => attempt.status === AttemptStatus.SCORED)
       .map((attempt) => attempt.form.code),
   );
-  const steps = primarySteps.map((entry) => ({
-    formCode: entry.form.code,
-    label: entry.form.label,
-    testName: entry.test.name,
-    estimatedMinutes: entry.test.estimatedMinutes,
-    completed: completedCodes.has(entry.form.code),
+  const steps = batterySteps.map((entry) => ({
+    formCode: entry.formCode,
+    label: entry.label,
+    testName: entry.testName,
+    estimatedMinutes: entry.estimatedMinutes,
+    completed: completedCodes.has(entry.formCode),
   }));
   const nextStep = steps.find((step) => !step.completed) ?? null;
-  const validationCount = primarySteps.filter(
-    (entry) => !isTalcatTest(entry.test),
+  const validationCount = batterySteps.filter(
+    (entry) => entry.kind === "validation",
   ).length;
+  const talcatCount = batterySteps.filter((entry) => entry.kind === "talcat").length;
 
   return {
     id: "full",
@@ -880,10 +904,10 @@ export async function getFullBatteryPlan(
       "Recorregut pensat per al participant que ha de fer TALCAT i, quan pertoqui, les proves addicionals de validacio.",
     note:
       validationCount > 0
-        ? `La bateria actual inclou ${validationCount} prova${validationCount === 1 ? "" : "es"} addicional${validationCount === 1 ? "" : "s"} de validacio.`
-        : "Ara mateix nomes hi ha activa la prova principal; quan s'afegeixin mes proves apareixeran aqui sense canviar el flux.",
-    estimatedMinutes: primarySteps.reduce(
-      (total, entry) => total + entry.test.estimatedMinutes,
+        ? `La bateria actual inclou ${talcatCount} forma${talcatCount === 1 ? "" : "es"} TALCAT i ${validationCount} prova${validationCount === 1 ? "" : "es"} addicional${validationCount === 1 ? "" : "s"} de validacio.`
+        : `Ara mateix la bateria recorre les ${talcatCount} formes TALCAT actives; quan s'afegeixin mes proves apareixeran aqui sense canviar el flux.`,
+    estimatedMinutes: batterySteps.reduce(
+      (total, entry) => total + entry.estimatedMinutes,
       0,
     ),
     totalSteps: steps.length,
@@ -953,14 +977,18 @@ export async function getResultSnapshot(code: string) {
   const batteryPlan = await getFullBatteryPlan(participant.publicCode);
   const attemptedCodes = new Set(participant.attempts.map((attempt) => attempt.form.code));
   const nextSteps: ResultSnapshot["nextSteps"] = [];
+  const nextBatteryStep =
+    batteryPlan?.steps.find((step) => !step.completed) ?? null;
 
   if (batteryPlan?.nextFormCode) {
     nextSteps.push({
-      title: "Continua la bateria completa",
+      title: "Passa a la seguent prova",
       description:
-        "Segueix amb la seguent prova pendent del recorregut complet del participant.",
-      href: `/itineraris/completa?codi=${participant.publicCode}`,
-      ctaLabel: "Continua la bateria",
+        nextBatteryStep
+          ? `La seguent prova pendent es ${nextBatteryStep.testName} - ${nextBatteryStep.label}.`
+          : "Segueix amb la seguent prova pendent del recorregut complet del participant.",
+      href: `/proves/${batteryPlan.nextFormCode}?codi=${participant.publicCode}`,
+      ctaLabel: "Passa a la seguent prova",
     });
   }
 
@@ -1016,6 +1044,12 @@ export async function getResultSnapshot(code: string) {
       completed: batteryPlan?.completedSteps ?? 0,
       total: batteryPlan?.totalSteps ?? 0,
       href: `/itineraris/completa?codi=${participant.publicCode}`,
+      nextHref: batteryPlan?.nextFormCode
+        ? `/proves/${batteryPlan.nextFormCode}?codi=${participant.publicCode}`
+        : null,
+      nextLabel: nextBatteryStep
+        ? `${nextBatteryStep.testName} - ${nextBatteryStep.label}`
+        : null,
     },
     nextSteps,
   } satisfies ResultSnapshot;
