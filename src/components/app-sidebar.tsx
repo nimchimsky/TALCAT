@@ -8,17 +8,15 @@ import {
   Database,
   LayoutDashboard,
   PlaySquare,
-  Rocket,
   Users,
 } from "lucide-react";
 
 const navigation = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/tests", label: "Proves", icon: PlaySquare },
-  { href: "/participants", label: "Participants", icon: Users },
-  { href: "/sessions", label: "Sessions", icon: Activity },
-  { href: "/results", label: "Resultats", icon: BarChart3 },
-  { href: "/deploy", label: "Deploy", icon: Rocket },
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/tests", label: "Proves", icon: PlaySquare },
+  { href: "/admin/participants", label: "Participants", icon: Users },
+  { href: "/admin/sessions", label: "Sessions", icon: Activity },
+  { href: "/admin/results", label: "Resultats", icon: BarChart3 },
 ];
 
 export function AppSidebar() {
@@ -29,14 +27,14 @@ export function AppSidebar() {
       <aside className="hidden w-72 shrink-0 lg:block">
         <div className="card-surface sticky top-6 space-y-8 p-6">
           <div className="space-y-3">
-            <p className="eyebrow">TALCAT</p>
+            <p className="eyebrow">TALCAT · recerca</p>
             <div className="space-y-2">
               <h1 className="font-display text-3xl leading-tight text-slate-950">
-                Administracio de proves online
+                Espai d&apos;investigacio
               </h1>
               <p className="text-sm leading-6 text-slate-600">
-                Un sol panell per activar formes, seguir sessions, revisar
-                resultats i preparar deploys.
+                Seguiment de formes, sessions, participants i qualitat de les
+                respostes.
               </p>
             </div>
           </div>
@@ -66,11 +64,11 @@ export function AppSidebar() {
           <div className="rounded-3xl bg-slate-950 px-5 py-5 text-sm text-white">
             <div className="mb-3 flex items-center gap-2 text-amber-300">
               <Database className="h-4 w-4" />
-              Railway ready
+              Seguiment intern
             </div>
             <p className="leading-6 text-slate-200">
-              Prisma + PostgreSQL ja preparats. Quan tinguis `DATABASE_URL`,
-              l&apos;app deixa de funcionar en mock i llegeix dades reals.
+              Aquest accés es reserva per a l&apos;equip investigador i la
+              coordinacio de camp.
             </p>
           </div>
         </div>

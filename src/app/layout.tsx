@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Fraunces } from "next/font/google";
 
-import { AppSidebar } from "@/components/app-sidebar";
+import { PublicFooter } from "@/components/public-footer";
 
 import "./globals.css";
 
@@ -17,7 +17,7 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: "TALCAT",
-  description: "Backoffice per administrar proves online, sessions i resultats.",
+  description: "Plataforma de proves TALCAT per a participants i recerca.",
 };
 
 export default function RootLayout({
@@ -29,12 +29,8 @@ export default function RootLayout({
     <html lang="ca">
       <body className={`${dmSans.variable} ${fraunces.variable} antialiased`}>
         <div className="min-h-screen">
-          <div className="mx-auto flex min-h-screen w-full max-w-[1480px] gap-6 px-4 py-4 sm:px-6 sm:py-6">
-            <AppSidebar />
-            <div className="min-w-0 flex-1">
-              <main>{children}</main>
-            </div>
-          </div>
+          <main>{children}</main>
+          <PublicFooter />
         </div>
       </body>
     </html>
