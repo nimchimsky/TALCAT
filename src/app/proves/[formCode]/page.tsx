@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
 
-import { PageHeader } from "@/components/page-header";
 import {
   createPublicAttempt,
   getPublicFormByCode,
-  getPublicTestSummary,
 } from "@/lib/public-data";
 
 export const dynamic = "force-dynamic";
@@ -40,89 +38,77 @@ export default async function PublicFormPage({ params, searchParams }: Props) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[980px] px-4 py-6 sm:px-6 sm:py-10">
-      <PageHeader
-        eyebrow={form.code}
-        title={`${form.test.name} - ${form.label}`}
-        description={getPublicTestSummary(form.test.estimatedMinutes)}
-      />
-
-      <section className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-        <div className="card-surface p-6">
-          <h2 className="text-xl font-semibold text-slate-950">
-            Resum de la prova
-          </h2>
-          <div className="mt-5 space-y-4 text-sm leading-7 text-slate-600">
-            <p>{form.itemCount} items en total.</p>
-            <p>
-              {form.wordCount} paraules i {form.pseudowordCount} distractors.
-            </p>
-            <p>
-              Aquesta administracio pot correspondre a un bloc pilot
-              d&apos;ancoratge o a un bloc fix de fallback.
-            </p>
-            <p>
-              L&apos;ordre de presentacio es aleatori en cada intent per evitar
-              estrategies.
-            </p>
-            <p>
-              Temps orientatiu: {form.test.estimatedMinutes} minuts en un sol
-              bloc.
-            </p>
-          </div>
-        </div>
-
-        <form action={startAttempt} className="card-surface p-6 sm:p-8">
-          <h2 className="text-2xl font-semibold text-slate-950">
-            Inicia la sessio
-          </h2>
-          <p className="mt-2 text-sm leading-7 text-slate-600">
-            Pots escriure el teu nom o un alias. Si ja tens un codi de
-            participant, el mantindrem per poder enllacar aquesta prova amb la
-            resta de la bateria.
-          </p>
-
-          {codi ? (
-            <div className="mt-4 rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-              Continuaras amb el codi <strong>{codi.toUpperCase()}</strong>.
+    <div className="public-shell">
+      <div className="public-frame">
+        <section className="public-panel grid gap-6 px-6 py-8 sm:px-10 sm:py-10 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="space-y-6">
+            <div>
+              <p className="eyebrow">Abans de comencar</p>
+              <h1 className="mt-3 font-display text-4xl leading-tight text-[#18261e] sm:text-5xl">
+                Llegeix cada element i respon amb naturalitat.
+              </h1>
             </div>
-          ) : null}
 
-          <input type="hidden" name="participantCode" value={codi ?? ""} />
+            <div className="space-y-3 text-sm leading-7 text-[#55605a]">
+              <p>Si el reconeixes com a paraula catalana, prem &quot;Es una paraula&quot;.</p>
+              <p>Si et sembla inventat o incorrecte, prem &quot;No es una paraula&quot;.</p>
+              <p>No et paris gaire estona en una sola pantalla.</p>
+            </div>
 
-          <div className="mt-6 grid gap-4">
-            <label className="text-sm text-slate-600">
-              <span className="mb-2 block font-medium text-slate-950">
-                Nom o alias
-              </span>
-              <input
-                name="fullName"
-                className="w-full rounded-[20px] border border-slate-200 bg-white/85 px-4 py-3 outline-none"
-                placeholder="Escriu el teu nom"
-              />
-            </label>
-
-            <label className="text-sm text-slate-600">
-              <span className="mb-2 block font-medium text-slate-950">
-                Email opcional
-              </span>
-              <input
-                type="email"
-                name="email"
-                className="w-full rounded-[20px] border border-slate-200 bg-white/85 px-4 py-3 outline-none"
-                placeholder="tu@exemple.com"
-              />
-            </label>
+            <div className="rounded-[28px] bg-white/72 p-5 text-sm leading-7 text-[#55605a]">
+              Temps orientatiu: {form.test.estimatedMinutes} minuts.
+            </div>
           </div>
 
-          <button
-            type="submit"
-            className="mt-6 rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            Comenca ara
-          </button>
-        </form>
-      </section>
+          <form action={startAttempt} className="rounded-[34px] bg-[#1d2e26] p-6 text-white sm:p-8">
+            <h2 className="text-2xl font-semibold">Inicia la sessio</h2>
+            <p className="mt-2 text-sm leading-7 text-[#d7d3cb]">
+              Pots escriure el teu nom o un alias. El codi de participant es
+              conservara per continuar mes endavant si cal.
+            </p>
+
+            {codi ? (
+              <div className="mt-4 rounded-[22px] border border-white/15 bg-white/8 px-4 py-3 text-sm text-[#f4eee4]">
+                Continuaras amb el codi <strong>{codi.toUpperCase()}</strong>.
+              </div>
+            ) : null}
+
+            <input type="hidden" name="participantCode" value={codi ?? ""} />
+
+            <div className="mt-6 grid gap-4">
+              <label className="text-sm text-[#d7d3cb]">
+                <span className="mb-2 block font-medium text-white">
+                  Nom o alias
+                </span>
+                <input
+                  name="fullName"
+                  className="w-full rounded-[20px] border border-white/12 bg-white/92 px-4 py-3 text-[#18261e] outline-none"
+                  placeholder="Escriu el teu nom"
+                />
+              </label>
+
+              <label className="text-sm text-[#d7d3cb]">
+                <span className="mb-2 block font-medium text-white">
+                  Email opcional
+                </span>
+                <input
+                  type="email"
+                  name="email"
+                  className="w-full rounded-[20px] border border-white/12 bg-white/92 px-4 py-3 text-[#18261e] outline-none"
+                  placeholder="tu@exemple.com"
+                />
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[#f6efe4] px-6 py-3 text-sm font-semibold text-[#18261e] transition hover:bg-white"
+            >
+              Comenca ara
+            </button>
+          </form>
+        </section>
+      </div>
     </div>
   );
 }

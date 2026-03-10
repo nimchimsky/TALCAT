@@ -1,185 +1,56 @@
 import Link from "next/link";
 
-import { getPublicHomeData } from "@/lib/public-data";
-
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const data = await getPublicHomeData();
-
   return (
-    <div className="mx-auto w-full max-w-[1180px] px-4 py-6 sm:px-6 sm:py-10">
-      <section className="card-surface overflow-hidden p-6 sm:p-8 lg:p-10">
-        <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="space-y-6">
-            <p className="eyebrow">TALCAT</p>
-            <div className="space-y-4">
-              <h1 className="font-display text-5xl leading-tight text-slate-950 sm:text-6xl">
-                Tria una administracio TALCAT o la bateria completa
+    <div className="public-shell">
+      <div className="public-frame">
+        <section className="public-panel overflow-hidden px-6 py-8 sm:px-10 sm:py-12">
+          <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
+            <div className="space-y-6">
+              <p className="eyebrow">TALCAT</p>
+              <h1 className="max-w-3xl font-display text-5xl leading-[0.94] text-[#18261e] sm:text-6xl lg:text-7xl">
+                Decideix si el que veus es una paraula catalana o no.
               </h1>
-              <p className="max-w-2xl text-base leading-8 text-slate-600">
-                Pots fer una sola administracio TALCAT per obtenir una lectura
-                breu del rendiment, o seguir el recorregut complet per validar
-                els tests amb el mateix codi de participant.
+              <p className="max-w-xl text-base leading-8 text-[#55605a] sm:text-lg">
+                Respon de manera natural, sense buscar ajuda externa. El test et
+                guiara pas a pas.
               </p>
+
+              <div className="flex flex-wrap gap-3 text-sm text-[#22332a]">
+                <div className="instruction-chip">6 a 8 minuts</div>
+                <div className="instruction-chip">Una sola passada</div>
+                <div className="instruction-chip">Sense pauses llargues</div>
+              </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-[24px] bg-white/75 p-5">
-                <p className="text-sm font-medium text-slate-500">Ordre</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-950">
-                  Aleatori
-                </p>
+            <div className="rounded-[34px] bg-[#1d2e26] p-6 text-[#f7f3ec] sm:p-8">
+              <p className="eyebrow text-[#e8b06a]">Abans de comencar</p>
+              <div className="mt-5 space-y-4 text-sm leading-7 text-[#d7d3cb]">
+                <p>Fes la prova en un lloc tranquil.</p>
+                <p>Respon tan aviat com ho tinguis clar.</p>
+                <p>Si dubtes, tria l&apos;opcio que et sembli millor i continua.</p>
               </div>
-              <div className="rounded-[24px] bg-white/75 p-5">
-                <p className="text-sm font-medium text-slate-500">Format</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-950">
-                  Paraula o no
-                </p>
-              </div>
-              <div className="rounded-[24px] bg-white/75 p-5">
-                <p className="text-sm font-medium text-slate-500">Acces</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-950">
-                  Online
-                </p>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/itineraris/completa"
+                  className="inline-flex items-center justify-center rounded-full bg-[#f6efe4] px-6 py-3 text-sm font-semibold text-[#18261e] transition hover:bg-white"
+                >
+                  Comenca el test
+                </Link>
+                <Link
+                  href="/resultats"
+                  className="inline-flex items-center justify-center rounded-full border border-white/20 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
+                >
+                  Ja tinc codi
+                </Link>
               </div>
             </div>
           </div>
-
-          <div className="rounded-[32px] bg-slate-950 p-6 text-white">
-            <p className="eyebrow text-amber-300">Abans de comencar</p>
-            <div className="mt-5 space-y-4 text-sm leading-7 text-slate-200">
-              <p>1. Busca un espai tranquil i fes cada prova d&apos;una sola tirada.</p>
-              <p>2. Les paraules i pseudoparaules surten en ordre aleatori a cada intent.</p>
-              <p>3. Guarda el teu codi final per recuperar resultats o continuar la bateria.</p>
-            </div>
-
-            <form
-              action="/resultats"
-              method="get"
-              className="mt-8 rounded-[24px] bg-white/10 p-4"
-            >
-              <label
-                htmlFor="codi"
-                className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-300"
-              >
-                Ja tens un codi?
-              </label>
-              <input
-                id="codi"
-                name="codi"
-                placeholder="Ex. TALCAT-AB12CD"
-                className="w-full rounded-2xl border border-white/15 bg-white/90 px-4 py-3 text-sm text-slate-950 outline-none ring-0"
-              />
-              <button
-                type="submit"
-                className="mt-3 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
-              >
-                Consulta o continua
-              </button>
-            </form>
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-8 grid gap-6 lg:grid-cols-2">
-        {data.journeys.map((journey) => (
-          <article key={journey.id} className="card-surface p-6 sm:p-8">
-            <p className="eyebrow">{journey.id === "quick" ? "Mode 1" : "Mode 2"}</p>
-            <h2 className="mt-3 font-display text-3xl text-slate-950">
-              {journey.title}
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-slate-600">
-              {journey.description}
-            </p>
-            <div className="mt-5 rounded-[24px] bg-white/75 p-4 text-sm text-slate-600">
-              <p className="font-medium text-slate-950">
-                {journey.estimatedMinutes} minuts aproximadament
-              </p>
-              <p className="mt-1">{journey.note}</p>
-            </div>
-            <Link
-              href={journey.href}
-              className="mt-6 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              {journey.ctaLabel}
-            </Link>
-          </article>
-        ))}
-      </section>
-
-      <section id="versions-talcat" className="mt-8">
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <p className="eyebrow">Administracions TALCAT</p>
-            <h2 className="font-display text-3xl text-slate-950">
-              Si fas l&apos;avaluacio rapida, tria una sola administracio
-            </h2>
-          </div>
-        </div>
-
-        <div className="grid gap-6">
-          {data.tests.map((test) => (
-            <article key={test.id} className="card-surface p-6 sm:p-8">
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-2xl space-y-3">
-                  <h3 className="text-2xl font-semibold text-slate-950">
-                    {test.name}
-                  </h3>
-                  <p className="text-sm leading-7 text-slate-600">
-                    {test.description}
-                  </p>
-                </div>
-                <div className="rounded-[24px] bg-white/75 px-5 py-4 text-sm text-slate-600">
-                  <p className="font-medium text-slate-950">
-                    {test.estimatedMinutes} minuts aproximadament
-                  </p>
-                  <p>Fes nomes una administracio si vols una lectura rapida</p>
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-4 lg:grid-cols-2">
-                {test.forms.map((form) => (
-                  <div
-                    key={form.code}
-                    className="rounded-[28px] border border-slate-200/80 bg-white/75 p-5"
-                  >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                          {form.code}
-                        </p>
-                        <h4 className="mt-2 text-xl font-semibold text-slate-950">
-                          {form.label}
-                        </h4>
-                        <p className="mt-2 text-sm leading-6 text-slate-600">
-                          {form.description}
-                        </p>
-                      </div>
-                      <div className="rounded-[20px] bg-slate-100 px-4 py-3 text-sm text-slate-600">
-                        <p className="font-medium text-slate-950">
-                          {form.itemCount} items
-                        </p>
-                        <p>
-                          {form.wordCount} paraules - {form.pseudowordCount} no
-                          paraules
-                        </p>
-                      </div>
-                    </div>
-
-                    <Link
-                      href={`/proves/${form.code}`}
-                      className="mt-5 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-                    >
-                      Fes aquesta administracio
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   );
 }

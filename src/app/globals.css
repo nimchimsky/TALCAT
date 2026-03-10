@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6efe3;
-  --foreground: #112033;
-  --surface: rgba(255, 251, 245, 0.84);
-  --surface-strong: rgba(255, 255, 255, 0.96);
-  --border: rgba(17, 32, 51, 0.1);
+  --background: #f3ecdf;
+  --foreground: #14231d;
+  --surface: rgba(252, 248, 241, 0.84);
+  --surface-strong: rgba(255, 252, 247, 0.96);
+  --border: rgba(20, 35, 29, 0.12);
 }
 
 @theme inline {
@@ -25,9 +25,9 @@ html {
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(244, 193, 113, 0.28), transparent 30%),
-    radial-gradient(circle at top right, rgba(64, 140, 132, 0.18), transparent 32%),
-    linear-gradient(180deg, #fff8ef 0%, #f6efe3 42%, #efe5d6 100%);
+    radial-gradient(circle at top left, rgba(220, 139, 71, 0.22), transparent 28%),
+    radial-gradient(circle at 85% 0%, rgba(31, 99, 85, 0.18), transparent 26%),
+    linear-gradient(180deg, #fbf7f0 0%, #f3ecdf 42%, #e7ddcb 100%);
   color: var(--foreground);
   font-family: var(--font-dm-sans), sans-serif;
   min-height: 100vh;
@@ -59,4 +59,75 @@ a {
 
 .font-display {
   font-family: var(--font-fraunces), serif;
+}
+
+.public-shell {
+  position: relative;
+  min-height: 100vh;
+}
+
+.public-shell::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.35), transparent 32%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(20, 35, 29, 0.02) 0,
+      rgba(20, 35, 29, 0.02) 1px,
+      transparent 1px,
+      transparent 14px
+    );
+  opacity: 0.7;
+}
+
+.public-frame {
+  position: relative;
+  z-index: 1;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 1180px;
+  padding: 1.25rem 1rem 3rem;
+}
+
+.public-panel {
+  border: 1px solid rgba(20, 35, 29, 0.08);
+  border-radius: 36px;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 244, 0.92), rgba(253, 249, 242, 0.76)),
+    rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 32px 90px rgba(42, 34, 22, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+}
+
+.instruction-chip {
+  border: 1px solid rgba(20, 35, 29, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 251, 247, 0.92);
+  padding: 0.7rem 1rem;
+}
+
+.answer-button {
+  border-radius: 30px;
+  border: 1px solid rgba(20, 35, 29, 0.12);
+  padding: 1.25rem 1.4rem;
+  text-align: left;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.answer-button:hover {
+  transform: translateY(-1px);
+}
+
+.answer-button:focus-visible {
+  outline: 2px solid rgba(20, 35, 29, 0.4);
+  outline-offset: 2px;
 }
